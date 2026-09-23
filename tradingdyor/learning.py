@@ -30,3 +30,11 @@ class RoutingPolicy:
             "retry_rate": dict(self.retry_rate),
             "branch_value": dict(self.branch_value),
         }
+
+
+def evidence_plan(self, candidates: list[str], minimum: int = 2) -> list[str]:
+    """Select evidence capabilities using historical utility, always preserving coverage."""
+    if not candidates:
+        return []
+    ranked = sorted(candidates, key=lambda x: self.capability_weight[x] + self.branch_value[x], reverse=True)
+    return ranked[:max(minimum, min(len(ranked), 4))]
