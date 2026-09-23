@@ -12,6 +12,8 @@ from .earnings import EarningsObservation, earnings_signal
 from .filings import sec_filings
 from .insiders import InsiderTransaction, insider_signal, normalize_insider_rows
 from .sector import SectorState, sector_score
+from .macro_adapter import live_macro
+from .sector_adapter import sector_state
 
 SEC_HEADERS = {"User-Agent": "TradingDYOR research/0.5 contact@example.com"}
 
@@ -142,6 +144,8 @@ def market_intelligence(ticker: str) -> dict:
         bool(filings),
     ]
     coverage = sum(coverage_parts) / len(coverage_parts)
+    macro = live_macro()
+    sector_intel = sector_state(sector)
     return {
         "ticker": ticker,
         "as_of": datetime.now(timezone.utc).isoformat(),
@@ -152,7 +156,8 @@ def market_intelligence(ticker: str) -> dict:
             "count": len(filings),
             "recent": [{"form": f.form, "filed": f.filed, "document": f.primary_document, "url": f.url} for f in filings],
         },
-        "sector": {"name": sector, "score": None, "status": "identified"},
+        "sector": {"name": sector, "score": sector_intel.get("score"), "status": sector_intel.get("status", "identified"), "detail": sector_intel},
+        "macro": macro,
         "evidence_coverage": coverage,
         "evidence_policy": "point-in-time",
     }
