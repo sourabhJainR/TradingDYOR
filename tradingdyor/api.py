@@ -20,6 +20,10 @@ from .sector_adapter import sector_state
 from .patents import search_patents
 from .decision_fabric import DecisionFabric
 
+from .research_graph import ResearchGraph
+from .orchestrator import ResearchOrchestrator
+from .research_collectors import COLLECTORS
+
 app=FastAPI(title="TradingDYOR", version="0.5.0")
 policy=RoutingPolicy()
 experience=ExperienceMemory()
@@ -120,3 +124,13 @@ def learning_plan(required_evidence: float = 0.7):
 @app.get("/research/patents/{organization}")
 def research_patents(organization: str, limit: int = 25):
     return search_patents(organization, limit)
+
+@app.get("/research/graph/{ticker}")
+def research_graph_plan(ticker: str):
+    graph = ResearchGraph()
+    return ResearchOrchestrator(fabric).plan(graph)
+
+@app.get("/research/run/{ticker}")
+def research_run(ticker: str):
+    run = ResearchOrchestrator(fabric).run(ticker.upper(), COLLECTORS)
+    return run.__dict__
