@@ -84,5 +84,14 @@ def record_experience(payload: dict):
     experience.record(row)
     return {"recorded": True, "stats": experience.capability_stats()}
 
+@app.get("/research/market-intelligence/{ticker}")
+def market_intelligence(ticker: str):
+    return {
+        "ticker": ticker.upper(),
+        "modules": ["insider_transactions", "earnings_guidance", "institutional_flows", "corporate_actions", "sector_macro"],
+        "status": "ready_for_source_adapters",
+        "evidence_policy": "point-in-time"
+    }
+
 @app.get("/learning/policy")
 def learning_policy(): return policy.snapshot()
