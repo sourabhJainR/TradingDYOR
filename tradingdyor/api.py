@@ -1,4 +1,6 @@
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from .models import SecuritySnapshot
 from .decision import decide
 from .sources import SOURCES
@@ -7,20 +9,23 @@ from .learning import RoutingPolicy
 from .research_engine import research_ticker, research_universe
 from .store import count
 
-app=FastAPI(title="TradingDYOR", version="0.2.0")
+app=FastAPI(title="TradingDYOR", version="0.3.0")
 policy=RoutingPolicy()
+WEB_ROOT=Path(__file__).resolve().parent.parent / "web"
 
 @app.get("/health")
 def health():
-    return {"status":"ok","sources":len(SOURCES),"evidence_records":count()}
+    return {"status":"ok","sources":len(SOURCES),"evidence_records":count(),"ui":"spa"}
 
 @app.get("/sources")
 def sources(): return [s.__dict__ for s in SOURCES]
 
+@app.get("/")
+def spa(): return FileResponse(WEB_ROOT / "index.html")
+
 @app.post("/research/score")
 def score(snapshot: SecuritySnapshot):
-    if not 0 <= snapshot.evidence_coverage <= 1:
-        raise HTTPException(400,"evidence_coverage must be between 0 and 1")
+    if not 0 <= snapshot.evidence_coverage <= 1: raise HTTPException(400,"evidence_coverage must be between 0 and 1")
     return decide(snapshot).model_dump(mode="json")
 
 @app.post("/research/universe")
@@ -29,8 +34,7 @@ def universe(snapshots: list[SecuritySnapshot]):
     return {k:[x.model_dump(mode="json") for x in v] for k,v in rank_universe(snapshots).items()}
 
 @app.get("/research/ticker/{ticker}")
-def ticker(ticker: str):
-    return research_ticker(ticker.upper())
+def ticker(ticker: str): return research_ticker(ticker.upper())
 
 @app.post("/research/live-universe")
 def live_universe(tickers: list[str]):
