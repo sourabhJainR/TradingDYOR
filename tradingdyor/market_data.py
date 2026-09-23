@@ -29,6 +29,8 @@ def snapshot_ticker(ticker: str) -> SecuritySnapshot:
         free_cash_flow=info.get("freeCashflow"),
         momentum_12m=momentum,
         volatility_90d=volatility,
+        sector=info.get("sector"),
+        company_name=info.get("longName") or info.get("shortName"),
         evidence_count=1,
         evidence_coverage=0.45,
     )

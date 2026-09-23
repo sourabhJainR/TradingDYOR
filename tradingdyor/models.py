@@ -26,6 +26,8 @@ class SecuritySnapshot(BaseModel):
     institutional_flow: float | None = None
     momentum_12m: float | None = None
     volatility_90d: float | None = None
+    sector: str | None = None
+    company_name: str | None = None
     evidence_count: int = 0
     evidence_coverage: float = 0.0
 

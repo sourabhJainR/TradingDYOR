@@ -10,8 +10,7 @@ import yfinance as yf
 from .corporate_actions import normalize_actions
 from .earnings import EarningsObservation, earnings_signal
 from .filings import sec_filings
-from .insiders import InsiderTransaction, insider_signal, normalize_insider_rows
-from .sector import SectorState, sector_score
+from .insiders import InsiderTransaction, insider_signal
 from .macro_adapter import live_macro
 from .sector_adapter import sector_state
 from .patents import search_patents
@@ -37,34 +36,21 @@ def sec_insider_transactions(ticker: str, limit: int = 20) -> list[InsiderTransa
     cik = _cik_for_ticker(ticker)
     if not cik:
         return []
-    submissions = requests.get(
-        f"https://data.sec.gov/submissions/CIK{cik}.json",
-        headers=SEC_HEADERS,
-        timeout=20,
-    ).json()
+    submissions = requests.get(f"https://data.sec.gov/submissions/CIK{cik}.json", headers=SEC_HEADERS, timeout=20).json()
     recent = submissions.get("filings", {}).get("recent", {})
     rows = []
     for i, form in enumerate(recent.get("form", [])):
         if form != "4":
             continue
-        rows.append({
-            "filing_date": recent["filingDate"][i],
-            "accession": recent["accessionNumber"][i],
-            "primary_document": recent["primaryDocument"][i],
-        })
+        rows.append({"filing_date": recent["filingDate"][i], "accession": recent["accessionNumber"][i], "primary_document": recent["primaryDocument"][i]})
         if len(rows) >= limit:
             break
 
     out: list[InsiderTransaction] = []
     for row in rows:
         try:
-            xml_text = requests.get(
-                _archive_url(cik, row["accession"], row["primary_document"]),
-                headers=SEC_HEADERS,
-                timeout=20,
-            ).text
+            xml_text = requests.get(_archive_url(cik, row["accession"], row["primary_document"]), headers=SEC_HEADERS, timeout=20).text
             root = ET.fromstring(xml_text)
-            ns = {"x": "http://www.sec.gov/edgar/thirteenf"}
             for node in root.findall(".//nonDerivativeTransaction"):
                 code = (node.findtext(".//transactionCoding/transactionCode") or "").strip()
                 if code not in {"P", "S"}:
@@ -72,15 +58,7 @@ def sec_insider_transactions(ticker: str, limit: int = 20) -> list[InsiderTransa
                 shares = node.findtext(".//transactionAmounts/transactionShares/value")
                 price = node.findtext(".//transactionAmounts/transactionPricePerShare/value")
                 insider = node.findtext(".//reportingOwner/reportingOwnerId/rptOwnerName") or ""
-                out.append(InsiderTransaction(
-                    ticker=ticker.upper(),
-                    filing_date=row["filing_date"],
-                    insider=insider,
-                    form="4",
-                    shares=float(shares) if shares else None,
-                    price=float(price) if price else None,
-                    transaction_code=code,
-                ))
+                out.append(InsiderTransaction(ticker=ticker.upper(), filing_date=row["filing_date"], insider=insider, form="4", shares=float(shares) if shares else None, price=float(price) if price else None, transaction_code=code))
         except (requests.RequestException, ET.ParseError, ValueError):
             continue
     return out
@@ -98,13 +76,7 @@ def earnings_history(ticker: str, limit: int = 8) -> list[EarningsObservation]:
         reported = row.get("Reported EPS")
         estimate = row.get("EPS Estimate")
         surprise = row.get("Surprise(%)")
-        out.append(EarningsObservation(
-            ticker=ticker.upper(),
-            period=str(getattr(idx, "date", lambda: idx)()),
-            reported=float(reported) if reported == reported else None,
-            estimate=float(estimate) if estimate == estimate else None,
-            surprise_pct=float(surprise) if surprise == surprise else None,
-        ))
+        out.append(EarningsObservation(ticker=ticker.upper(), period=str(getattr(idx, "date", lambda: idx)()), reported=float(reported) if reported == reported else None, estimate=float(estimate) if estimate == estimate else None, surprise_pct=float(surprise) if surprise == surprise else None))
     return out
 
 
@@ -132,33 +104,25 @@ def market_intelligence(ticker: str) -> dict:
     filings = sec_filings(ticker, limit=20)
     try:
         info = yf.Ticker(ticker).info
-        sector = info.get("sector") or "Unknown"
     except Exception:
-        sector = "Unknown"
+        info = {}
+    sector = info.get("sector") or "Unknown"
+    company_name = info.get("longName") or info.get("shortName")
 
     earnings = earnings_signal(earnings_rows)
     insider = insider_signal(insider_rows)
-    coverage_parts = [
-        bool(insider_rows),
-        bool(earnings_rows),
-        bool(actions),
-        bool(filings),
-    ]
+    coverage_parts = [bool(insider_rows), bool(earnings_rows), bool(actions), bool(filings)]
     coverage = sum(coverage_parts) / len(coverage_parts)
     macro = live_macro()
     sector_intel = sector_state(sector)
-    company_name = info.get("longName") if "info" in locals() else None
-    patent_intel = search_patents(company_name, 10) if company_name else {"status":"unavailable","patents":[]}
+    patent_intel = search_patents(company_name, 10) if company_name else {"status": "unavailable", "patents": []}
     return {
         "ticker": ticker,
         "as_of": datetime.now(timezone.utc).isoformat(),
         "insiders": {"signal": insider, "observations": [asdict(x) for x in insider_rows]},
         "earnings": {"signal": earnings, "observations": [asdict(x) for x in earnings_rows]},
         "corporate_actions": {"count": len(actions), "recent": actions[-12:]},
-        "filing_activity": {
-            "count": len(filings),
-            "recent": [{"form": f.form, "filed": f.filed, "document": f.primary_document, "url": f.url} for f in filings],
-        },
+        "filing_activity": {"count": len(filings), "recent": [{"form": f.form, "filed": f.filed, "document": f.primary_document, "url": f.url} for f in filings]},
         "sector": {"name": sector, "score": sector_intel.get("score"), "status": sector_intel.get("status", "identified"), "detail": sector_intel},
         "macro": macro,
         "patents": patent_intel,
