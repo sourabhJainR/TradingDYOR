@@ -1,0 +1,28 @@
+name: Monthly TradingDYOR reassessment
+
+on:
+  schedule:
+    - cron: "30 18 1 * *"
+  workflow_dispatch:
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pip install -e .
+      - working-directory: agents
+        run: npm install
+      - working-directory: agents
+        run: npx playwright install --with-deps chromium
+      - run: python scripts/collect_sources.py > monthly-evidence.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: monthly-evidence
+          path: monthly-evidence.json
