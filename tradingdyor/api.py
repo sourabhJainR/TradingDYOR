@@ -91,9 +91,11 @@ def research_institutional(manager_cik: str, limit: int = 4):
     return summarize_positions(positions)
 
 @app.post("/research/counterfactual/{ticker}")
-def research_counterfactual(ticker: str, changes: dict[str, dict[str, float]]):
+def research_counterfactual(ticker: str, changes: dict[str, dict[str, float]], budget: int = 3):
     snapshot = snapshot_ticker(ticker.upper())
-    return {"ticker": ticker.upper(), "branches": [b.__dict__ for b in evaluate_branches(snapshot, changes)]}
+    selected = fabric.select_branches(list(changes), budget=max(1, min(3, budget)))
+    selected_changes = {name: changes[name] for name in selected}
+    return {"ticker": ticker.upper(), "selected_branches": selected, "branches": [b.__dict__ for b in evaluate_branches(snapshot, selected_changes)]}
 
 @app.get("/research/backtest/{ticker}")
 def research_backtest(ticker: str):
