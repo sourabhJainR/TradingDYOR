@@ -4,12 +4,15 @@ from .decision import decide
 from .sources import SOURCES
 from .research import rank_universe
 from .learning import RoutingPolicy
+from .research_engine import research_ticker, research_universe
+from .store import count
 
-app=FastAPI(title="TradingDYOR", version="0.1.0")
+app=FastAPI(title="TradingDYOR", version="0.2.0")
 policy=RoutingPolicy()
 
 @app.get("/health")
-def health(): return {"status":"ok","sources":len(SOURCES)}
+def health():
+    return {"status":"ok","sources":len(SOURCES),"evidence_records":count()}
 
 @app.get("/sources")
 def sources(): return [s.__dict__ for s in SOURCES]
@@ -22,9 +25,17 @@ def score(snapshot: SecuritySnapshot):
 
 @app.post("/research/universe")
 def universe(snapshots: list[SecuritySnapshot]):
-    if not snapshots:
-        raise HTTPException(400,"at least one snapshot is required")
+    if not snapshots: raise HTTPException(400,"at least one snapshot is required")
     return {k:[x.model_dump(mode="json") for x in v] for k,v in rank_universe(snapshots).items()}
+
+@app.get("/research/ticker/{ticker}")
+def ticker(ticker: str):
+    return research_ticker(ticker.upper())
+
+@app.post("/research/live-universe")
+def live_universe(tickers: list[str]):
+    if not tickers: raise HTTPException(400,"at least one ticker is required")
+    return research_universe([x.upper() for x in tickers[:200]])
 
 @app.get("/learning/policy")
 def learning_policy(): return policy.snapshot()
