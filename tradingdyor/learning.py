@@ -9,32 +9,21 @@ class RoutingPolicy:
     branch_value: dict[str,float] = field(default_factory=lambda: defaultdict(lambda: 1.0))
 
     def update(self, capability: str, success: bool, evidence_yield: float, realized_return: float | None = None):
-        reward = (1.0 if success else -1.0) + 0.5 * evidence_yield
-        if realized_return is not None:
-            reward += max(-1.0, min(1.0, realized_return))
+        reward=(1.0 if success else -1.0)+0.5*evidence_yield
+        if realized_return is not None: reward+=max(-1.0,min(1.0,realized_return))
         old=self.capability_weight[capability]
-        self.capability_weight[capability]=max(0.1, min(3.0, 0.9*old+0.1*(1+reward)))
-        self.verification_depth[capability]=max(0.25, min(3.0, 0.95*self.verification_depth[capability]+0.05*(1+abs(reward))))
-        if not success:
-            self.retry_rate[capability]=min(1.0, self.retry_rate[capability]+0.05)
-        else:
-            self.retry_rate[capability]=max(0.0, self.retry_rate[capability]-0.02)
+        self.capability_weight[capability]=max(0.1,min(3.0,0.9*old+0.1*(1+reward)))
+        self.verification_depth[capability]=max(0.25,min(3.0,0.95*self.verification_depth[capability]+0.05*(1+abs(reward))))
+        self.retry_rate[capability]=min(1.0,self.retry_rate[capability]+0.05) if not success else max(0.0,self.retry_rate[capability]-0.02)
 
-    def choose(self, candidates: list[str]) -> str:
-        return max(candidates, key=lambda x: self.capability_weight[x]) if candidates else ""
+    def choose(self,candidates:list[str])->str:
+        return max(candidates,key=lambda x:self.capability_weight[x]) if candidates else ""
+
+    def evidence_plan(self,candidates:list[str],minimum:int=2)->list[str]:
+        if not candidates: return []
+        ranked=sorted(candidates,key=lambda x:self.capability_weight[x]+self.branch_value[x],reverse=True)
+        return ranked[:max(minimum,min(len(candidates),4))]
 
     def snapshot(self):
-        return {
-            "capability_weight": dict(self.capability_weight),
-            "verification_depth": dict(self.verification_depth),
-            "retry_rate": dict(self.retry_rate),
-            "branch_value": dict(self.branch_value),
-        }
-
-
-def evidence_plan(self, candidates: list[str], minimum: int = 2) -> list[str]:
-    """Select evidence capabilities using historical utility, always preserving coverage."""
-    if not candidates:
-        return []
-    ranked = sorted(candidates, key=lambda x: self.capability_weight[x] + self.branch_value[x], reverse=True)
-    return ranked[:max(minimum, min(len(ranked), 4))]
+        return {"capability_weight":dict(self.capability_weight),"verification_depth":dict(self.verification_depth),
+                "retry_rate":dict(self.retry_rate),"branch_value":dict(self.branch_value)}
