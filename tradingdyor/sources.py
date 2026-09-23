@@ -56,3 +56,9 @@ SOURCES = [
     Source("SEC Company Search","https://www.sec.gov/edgar/searchedgar/companysearch"),
     Source("SEC Filings Search","https://www.sec.gov/edgar/search/"),
 ]
+
+SOURCES.extend([
+    Source("SEC Form 13F Data Sets","institutional","https://www.sec.gov/data-research/sec-markets-data/form-13f-data-sets"),
+    Source("FRED API","macro","https://fred.stlouisfed.org/docs/api/fred/overview.html"),
+    Source("USPTO Open Data","patents","https://developer.uspto.gov/"),
+])
