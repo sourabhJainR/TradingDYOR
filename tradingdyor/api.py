@@ -17,10 +17,13 @@ from .market_intelligence import market_intelligence
 from .institutional import parse_13f, summarize_positions
 from .macro_adapter import live_macro, fred_series
 from .sector_adapter import sector_state
+from .patents import search_patents
+from .decision_fabric import DecisionFabric
 
 app=FastAPI(title="TradingDYOR", version="0.5.0")
 policy=RoutingPolicy()
 experience=ExperienceMemory()
+fabric=DecisionFabric(policy, experience)
 WEB_ROOT=Path(__file__).resolve().parent.parent / "web"
 
 @app.get("/health")
@@ -108,3 +111,12 @@ def record_experience(payload: dict):
 
 @app.get("/learning/policy")
 def learning_policy(): return policy.snapshot()
+
+@app.get("/learning/plan")
+def learning_plan(required_evidence: float = 0.7):
+    capabilities=["filings","fundamentals","insiders","earnings","institutional","sector","macro","patents"]
+    return fabric.plan(capabilities,max(0,min(1,required_evidence))).__dict__
+
+@app.get("/research/patents/{organization}")
+def research_patents(organization: str, limit: int = 25):
+    return search_patents(organization, limit)
