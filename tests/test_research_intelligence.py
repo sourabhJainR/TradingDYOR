@@ -17,10 +17,8 @@ def test_filing_tags_and_events_are_deterministic():
 
 
 def test_flow_normalization_and_macro_regime():
-    rows = normalize_flow_rows(
-        [{"ticker": "nvda", "source": "13F", "filing_date": "2026-01-01",
-          "holder": "Fund", "shares": "10", "value": "1000"}]
-    )
+    rows = normalize_flow_rows("NVDA", [{"filing_date": "2026-01-01",
+          "holder": "Fund", "shares": "10", "value": "1000"}])
     assert rows[0].ticker == "NVDA"
     assert rows[0].shares == 10.0
     assert classify_regime(0.12, 0.15, 0.04).name == "risk-on"
