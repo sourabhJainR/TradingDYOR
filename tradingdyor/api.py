@@ -14,6 +14,9 @@ from .strategy_validation import walk_forward_strategies, summarize_strategy_wal
 from .experience import Experience, ExperienceMemory
 from .market_data import snapshot_ticker
 from .market_intelligence import market_intelligence
+from .institutional import parse_13f, summarize_positions
+from .macro_adapter import live_macro, fred_series
+from .sector_adapter import sector_state
 
 app=FastAPI(title="TradingDYOR", version="0.5.0")
 policy=RoutingPolicy()
@@ -63,6 +66,22 @@ def research_evidence(ticker: str):
 @app.get("/research/market-intelligence/{ticker}")
 def research_market_intelligence(ticker: str):
     return market_intelligence(ticker.upper())
+
+@app.get("/research/macro")
+def research_macro(series_id: str | None = None):
+    data = live_macro()
+    if series_id:
+        data["fred"] = fred_series(series_id)
+    return data
+
+@app.get("/research/sector/{sector}")
+def research_sector(sector: str):
+    return sector_state(sector)
+
+@app.get("/research/institutional/{manager_cik}")
+def research_institutional(manager_cik: str, limit: int = 4):
+    positions = parse_13f(manager_cik, max(1, min(limit, 8)))
+    return summarize_positions(positions)
 
 @app.post("/research/counterfactual/{ticker}")
 def research_counterfactual(ticker: str, changes: dict[str, dict[str, float]]):
