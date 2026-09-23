@@ -1,0 +1,13 @@
+{
+  "name": "tradingdyor-agents",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "browse": "node src/runner.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0",
+    "experts": "^0.0.0"
+  }
+}
