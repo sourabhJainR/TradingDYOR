@@ -14,6 +14,7 @@ from .insiders import InsiderTransaction, insider_signal, normalize_insider_rows
 from .sector import SectorState, sector_score
 from .macro_adapter import live_macro
 from .sector_adapter import sector_state
+from .patents import search_patents
 
 SEC_HEADERS = {"User-Agent": "TradingDYOR research/0.5 contact@example.com"}
 
@@ -146,6 +147,8 @@ def market_intelligence(ticker: str) -> dict:
     coverage = sum(coverage_parts) / len(coverage_parts)
     macro = live_macro()
     sector_intel = sector_state(sector)
+    company_name = info.get("longName") if "info" in locals() else None
+    patent_intel = search_patents(company_name, 10) if company_name else {"status":"unavailable","patents":[]}
     return {
         "ticker": ticker,
         "as_of": datetime.now(timezone.utc).isoformat(),
@@ -158,6 +161,7 @@ def market_intelligence(ticker: str) -> dict:
         },
         "sector": {"name": sector, "score": sector_intel.get("score"), "status": sector_intel.get("status", "identified"), "detail": sector_intel},
         "macro": macro,
+        "patents": patent_intel,
         "evidence_coverage": coverage,
         "evidence_policy": "point-in-time",
     }
