@@ -7,7 +7,12 @@
     "test": "node --test"
   },
   "dependencies": {
-    "playwright": "^1.55.0",
-    "experts": "^0.0.0"
+    "playwright": "^1.55.0"
+  },
+  "peerDependencies": {
+    "experts": "*"
+  },
+  "peerDependenciesMeta": {
+    "experts": { "optional": true }
   }
 }
