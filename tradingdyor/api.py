@@ -13,8 +13,9 @@ from .counterfactual import evaluate_branches
 from .strategy_validation import walk_forward_strategies, summarize_strategy_walk_forward
 from .experience import Experience, ExperienceMemory
 from .market_data import snapshot_ticker
+from .market_intelligence import market_intelligence
 
-app=FastAPI(title="TradingDYOR", version="0.3.0")
+app=FastAPI(title="TradingDYOR", version="0.5.0")
 policy=RoutingPolicy()
 experience=ExperienceMemory()
 WEB_ROOT=Path(__file__).resolve().parent.parent / "web"
@@ -59,6 +60,10 @@ def research_evidence(ticker: str):
         ],
     }
 
+@app.get("/research/market-intelligence/{ticker}")
+def research_market_intelligence(ticker: str):
+    return market_intelligence(ticker.upper())
+
 @app.post("/research/counterfactual/{ticker}")
 def research_counterfactual(ticker: str, changes: dict[str, dict[str, float]]):
     snapshot = snapshot_ticker(ticker.upper())
@@ -68,30 +73,19 @@ def research_counterfactual(ticker: str, changes: dict[str, dict[str, float]]):
 def research_backtest(ticker: str):
     import yfinance as yf
     history = yf.Ticker(ticker.upper()).history(period="5y", auto_adjust=True)
-    if history.empty:
-        raise HTTPException(404, "no price history available")
+    if history.empty: raise HTTPException(404, "no price history available")
     results = walk_forward_strategies(history["Close"])
     return {"ticker": ticker.upper(), "summary": summarize_strategy_walk_forward(results),
             "observations": results.to_dict(orient="records")}
 
 @app.get("/learning/experience")
-def learning_experience():
-    return {"stats": experience.capability_stats()}
+def learning_experience(): return {"stats": experience.capability_stats()}
 
 @app.post("/learning/experience")
 def record_experience(payload: dict):
     row = Experience(**payload)
     experience.record(row)
     return {"recorded": True, "stats": experience.capability_stats()}
-
-@app.get("/research/market-intelligence/{ticker}")
-def market_intelligence(ticker: str):
-    return {
-        "ticker": ticker.upper(),
-        "modules": ["insider_transactions", "earnings_guidance", "institutional_flows", "corporate_actions", "sector_macro"],
-        "status": "ready_for_source_adapters",
-        "evidence_policy": "point-in-time"
-    }
 
 @app.get("/learning/policy")
 def learning_policy(): return policy.snapshot()
