@@ -17,8 +17,10 @@ class Experience:
 
 
 class ExperienceMemory:
-    def __init__(self, path: str | Path = ".tradingdyor/experience.json"):
+    """Small gated memory: cold-start observations do not override the policy by themselves."""
+    def __init__(self, path: str | Path = ".tradingdyor/experience.json", max_records: int = 5000):
         self.path = Path(path)
+        self.max_records = max(100, max_records)
         self.records: list[Experience] = []
         self.load()
 
@@ -26,12 +28,24 @@ class ExperienceMemory:
         if not self.path.exists():
             return
         try:
-            self.records = [Experience(**x) for x in json.loads(self.path.read_text())]
+            self.records = [Experience(**x) for x in json.loads(self.path.read_text())][-self.max_records:]
         except (OSError, ValueError, TypeError):
             self.records = []
 
     def record(self, experience: Experience) -> None:
-        self.records.append(experience)
+        if not experience.capability or experience.duration_ms < 0:
+            return
+        row = Experience(
+            capability=experience.capability,
+            success=bool(experience.success),
+            duration_ms=float(max(0.0, experience.duration_ms)),
+            evidence_yield=float(max(0.0, min(1.0, experience.evidence_yield))),
+            verification_depth=float(max(0.25, min(3.0, experience.verification_depth))),
+            retry_count=max(0, int(experience.retry_count)),
+            branch_value=float(max(0.0, min(3.0, experience.branch_value))),
+        )
+        self.records.append(row)
+        self.records = self.records[-self.max_records:]
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps([asdict(x) for x in self.records], indent=2))
 
@@ -52,17 +66,23 @@ class ExperienceMemory:
             for key, rows in grouped.items()
         }
 
+    def utility(self, name: str) -> float:
+        s = self.capability_stats().get(name, {})
+        if s.get("observations", 0) < 2:
+            return 0.0
+        return (
+            2.0 * s.get("success_rate", 0.5)
+            + 0.5 * s.get("avg_evidence_yield", 0.0)
+            + 0.25 * s.get("avg_branch_value", 0.0)
+            - 0.0001 * s.get("avg_duration_ms", 0.0)
+            - 0.25 * s.get("avg_retry_count", 0.0)
+        )
+
     def recommend(self, candidates: list[str]) -> str:
-        stats = self.capability_stats()
         if not candidates:
             return ""
-        def utility(name: str) -> float:
-            s = stats.get(name, {})
-            return (
-                2.0 * s.get("success_rate", 0.5)
-                + 0.5 * s.get("avg_evidence_yield", 0.0)
-                + 0.25 * s.get("avg_branch_value", 0.0)
-                - 0.0001 * s.get("avg_duration_ms", 0.0)
-                - 0.25 * s.get("avg_retry_count", 0.0)
-            )
-        return max(candidates, key=utility)
+        stats = self.capability_stats()
+        experienced = [x for x in candidates if stats.get(x, {}).get("observations", 0) >= 2]
+        if not experienced:
+            return ""
+        return max(experienced, key=self.utility)
