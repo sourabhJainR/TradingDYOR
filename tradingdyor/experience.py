@@ -68,7 +68,7 @@ class ExperienceMemory:
 
     def utility(self, name: str) -> float:
         s = self.capability_stats().get(name, {})
-        if s.get("observations", 0) < 2:
+        if s.get("observations", 0) < 1:
             return 0.0
         return (
             2.0 * s.get("success_rate", 0.5)
@@ -82,7 +82,8 @@ class ExperienceMemory:
         if not candidates:
             return ""
         stats = self.capability_stats()
-        experienced = [x for x in candidates if stats.get(x, {}).get("observations", 0) >= 2]
-        if not experienced:
+        # Compare historical outcomes only when every candidate has at least one
+        # observation; unseen candidates remain protected by the cold-start policy.
+        if any(stats.get(x, {}).get("observations", 0) < 1 for x in candidates):
             return ""
-        return max(experienced, key=self.utility)
+        return max(candidates, key=self.utility)
