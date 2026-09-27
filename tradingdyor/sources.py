@@ -60,5 +60,11 @@ SOURCES = [
 SOURCES.extend([
     Source("SEC Form 13F Data Sets","https://www.sec.gov/data-research/sec-markets-data/form-13f-data-sets","institutional"),
     Source("FRED API","https://fred.stlouisfed.org/docs/api/fred/overview.html","macro"),
+    Source("Income Tax Department","https://www.incometaxindia.gov.in/","tax"),
+    Source("Income Tax e-Filing","https://www.incometax.gov.in/","tax"),
+    Source("PIB Ministry of Finance","https://www.pib.gov.in/","government"),
+    Source("Reserve Bank of India","https://www.rbi.org.in/","macro"),
+    Source("Federal Reserve FOMC Calendar","https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm","government"),
+    Source("ECB Meeting Calendar","https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html","government"),
     Source("USPTO Open Data","https://developer.uspto.gov/","patents"),
 ])
