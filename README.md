@@ -50,3 +50,23 @@ This is research decision support, not a guarantee of returns or personalized in
 The API endpoint `/research/monthly-recommendations?market=US` or `market=INDIA` evaluates a selected universe for a maximum 30-day trade horizon. It selects stop-loss, take-profit and holding-period parameters from historical training data, holds out the most recent 63 trading days for validation, and returns explicit entry, target, stop and time-stop levels.
 
 This is an optimization and research framework, not a guarantee of maximum future return. The engine rejects a BUY when its current momentum gate and recent out-of-sample evidence do not support a positive one-month trade case.
+
+## Macro and event intelligence
+
+The research loop now evaluates the market against long-history regimes rather than treating the current tape as normal by default. It tracks volatility, drawdown, trend and VIX, with explicit slowdown/high-stress/crisis states and historical extreme-event anchors.
+
+Macro context includes fiscal deficit, debt, policy rates, long rates, FX, dollar conditions, credit stress, growth and inflation where a verified data series is available. India-specific fiscal/debt fields remain source-controlled rather than silently substituting US data.
+
+Upcoming events are modeled as dated forecasts across geopolitical, government, macro, sector and company categories. Each forecast can later be observed with the actual event time, surprise and market reaction. Timing error and directional accuracy are then measured for future calibration.
+
+For India, published advance-tax/direct-tax observations are retained as an early tax-flow signal. They are treated as a leading indicator, not as a direct substitute for company earnings, and the platform does not access confidential taxpayer filings.
+
+Relevant endpoints:
+- `/research/macro-intelligence?market=US|INDIA`
+- `/research/regime-history`
+- `/research/events`
+- `/research/events/forecast`
+- `/research/events/{event_id}/observe`
+- `/research/advance-tax`
+
+A stressed regime does not force a blanket HOLD. It reduces the score/confidence of marginal trades while preserving strong positive expected-return opportunities when the underlying evidence supports them.

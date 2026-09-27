@@ -30,3 +30,21 @@ Learning never mutates raw evidence. Policies are updated only from realized out
 Backtests must use only information available at the historical signal timestamp. No future fundamentals may leak into a prior snapshot.
 
 The UI exposes model outputs as Buy/Hold/Sell buckets with evidence coverage, model agreement, valuation context, key risks and invalidation triggers.
+
+
+## Macro, regime and event intelligence
+
+The decision loop now has a separate context layer for:
+- market slowdowns, high-stress periods and crisis regimes detected from long-history volatility, drawdown, trend and VIX;
+- historical extreme-event anchors including the global financial crisis, euro-area stress, COVID shock, inflation/rate shock and regional-bank stress;
+- fiscal deficit, sovereign debt, policy rates, long rates, FX, dollar conditions, credit stress, growth and inflation indicators where a verified series is available;
+- upcoming geopolitical, government, macro, sector and company events represented as time-bounded forecasts rather than unverified narratives;
+- advance-tax and direct-tax collection observations as a leading macro/corporate-profit signal for India. The system stores published aggregate observations only; it does not access confidential taxpayer filings;
+- post-event learning: actual event time, surprise and market reaction are stored against the forecast, allowing timing error and directional accuracy to be measured.
+
+A stressed regime changes the required evidence threshold and scales the decision score rather than blindly suppressing all opportunities. This preserves the ability to find positive expected-return trades during weak markets while reducing confidence when historical adverse movement is elevated.
+
+The event loop is:
+forecast -> expected window -> observation -> surprise -> market reaction -> timing error -> calibration -> future event weighting.
+
+This is intentionally separated from the raw evidence ledger so learning cannot rewrite historical facts.

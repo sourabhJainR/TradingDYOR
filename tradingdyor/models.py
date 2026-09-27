@@ -28,6 +28,13 @@ class SecuritySnapshot(BaseModel):
     volatility_90d: float | None = None
     sector: str | None = None
     company_name: str | None = None
+    market_regime: str | None = None
+    regime_score: float | None = None
+    regime_stress: float | None = None
+    macro_pressure: float | None = None
+    event_pressure: float | None = None
+    expected_return_edge: float | None = None
+    expected_risk: float | None = None
     evidence_count: int = 0
     evidence_coverage: float = 0.0
 

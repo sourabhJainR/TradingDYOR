@@ -21,6 +21,10 @@ from .sector_adapter import sector_state
 from .patents import search_patents
 from .decision_fabric import DecisionFabric
 from .monthly_optimizer import build_monthly_recommendations
+from .macro_intelligence import macro_state
+from .regime_intelligence import EventMemory
+from .event_intelligence import build_forecast, extract_event_candidates
+from .advance_tax import from_official_observation, official_source_status, tax_calendar, AdvanceTaxMemory
 
 from .research_graph import ResearchGraph
 from .orchestrator import ResearchOrchestrator
@@ -112,6 +116,92 @@ def monthly_recommendations(
     except ValueError as exc:
         raise HTTPException(400, str(exc))
 
+
+
+
+@app.get("/research/macro-intelligence")
+def macro_intelligence(market: str = "US"):
+    return macro_state(market)
+
+
+@app.get("/research/regime-history")
+def regime_history():
+    from .regime_intelligence import extreme_event_history, classify_market_regime
+    return {"current": classify_market_regime().__dict__, "historical_anchors": extreme_event_history()}
+
+
+@app.get("/research/events")
+def research_events():
+    memory = EventMemory()
+    return {"events": [x.__dict__ for x in memory.events], "calibration": memory.calibration()}
+
+
+@app.post("/research/events/forecast")
+def forecast_event(payload: dict):
+    try:
+        event = build_forecast(
+            payload["category"], payload["entity"], payload["expected_at"],
+            int(payload.get("window_days", 1)), float(payload.get("importance", 0.5)),
+            float(payload.get("probability", 0.5)), float(payload.get("expected_direction", 0.0)),
+            payload.get("source", "user-provided"),
+        )
+        memory = EventMemory()
+        memory.record_forecast(event)
+        return event.__dict__
+    except (KeyError, ValueError, TypeError) as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/research/events/extract")
+def extract_events(payload: dict):
+    try:
+        events = extract_event_candidates(
+            str(payload["text"]), str(payload.get("category", "macro")),
+            str(payload.get("entity", "market")), str(payload.get("source", "research")),
+        )
+        memory = EventMemory()
+        for event in events:
+            memory.record_forecast(event)
+        return {"events": [x.__dict__ for x in events]}
+    except (KeyError, ValueError, TypeError) as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/research/events/{event_id}/observe")
+def observe_event(event_id: str, payload: dict):
+    try:
+        event = EventMemory().record_observation(
+            event_id, str(payload["observed_at"]), float(payload["market_reaction"]),
+            float(payload["surprise"]) if payload.get("surprise") is not None else None,
+        )
+        return event.__dict__
+    except KeyError:
+        raise HTTPException(404, "event forecast not found")
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.get("/research/advance-tax")
+def advance_tax_status(year: int | None = None):
+    from datetime import datetime
+    target = year or datetime.now().year
+    memory = AdvanceTaxMemory()
+    return {"source_status": official_source_status(), "calendar": tax_calendar(target), "history": memory.history(), "latest": memory.latest()}
+
+
+@app.post("/research/advance-tax")
+def record_advance_tax(payload: dict):
+    try:
+        signal = from_official_observation(
+            str(payload["period"]), payload.get("collection"),
+            payload.get("yoy_growth"), payload.get("corporate_growth"),
+            payload.get("personal_growth"), payload.get("source", "Income Tax Department"),
+        )
+        memory = AdvanceTaxMemory()
+        memory.record(signal)
+        return signal
+    except (KeyError, ValueError, TypeError) as exc:
+        raise HTTPException(400, str(exc))
 
 @app.get("/research/backtest/{ticker}")
 def research_backtest(ticker: str):
