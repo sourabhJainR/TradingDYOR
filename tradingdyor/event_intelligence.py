@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from hashlib import sha256
 import re
 
@@ -20,11 +20,12 @@ def build_forecast(category: str, entity: str, expected_at: str, window_days: in
     if category not in CATEGORIES:
         raise ValueError(f"unsupported event category: {category}")
     expected = datetime.fromisoformat(expected_at.replace("Z", "+00:00"))
+    window = max(1, int(window_days))
     return EventForecast(
         event_id=event_id(category, entity, expected_at),
         category=category, entity=entity, expected_at=expected_at,
-        window_start=(expected.replace(hour=0, minute=0, second=0, microsecond=0)).isoformat(),
-        window_end=(expected.replace(hour=23, minute=59, second=59, microsecond=999999)).isoformat(),
+        window_start=(expected - timedelta(days=window)).isoformat(),
+        window_end=(expected + timedelta(days=window)).isoformat(),
         importance=max(0.0, min(1.0, importance)),
         probability=max(0.0, min(1.0, probability)),
         expected_direction=max(-1.0, min(1.0, expected_direction)),
@@ -50,7 +51,12 @@ def event_pressure(memory: EventMemory, ticker: str | None = None) -> float:
         if event.observed_at or event.importance <= 0:
             continue
         expected = datetime.fromisoformat(event.expected_at.replace("Z", "+00:00"))
-        days = abs((expected - now).total_seconds()) / 86400.0
-        if days <= 14:
-            pressure = max(pressure, event.importance * event.probability * (1.0 - min(days / 14.0, 1.0)))
+        window_start = datetime.fromisoformat(event.window_start.replace("Z", "+00:00"))
+        window_end = datetime.fromisoformat(event.window_end.replace("Z", "+00:00"))
+        if window_start <= now <= window_end:
+            pressure = max(pressure, event.importance * event.probability)
+        else:
+            days = min(abs((window_start - now).total_seconds()), abs((window_end - now).total_seconds())) / 86400.0
+            if days <= 14:
+                pressure = max(pressure, event.importance * event.probability * (1.0 - min(days / 14.0, 1.0)))
     return min(1.0, pressure)
