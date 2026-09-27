@@ -12,6 +12,7 @@ from .filings import sec_filings, filing_signal_tags
 from .counterfactual import evaluate_branches
 from .strategy_validation import walk_forward_strategies, summarize_strategy_walk_forward
 from .experience import Experience, ExperienceMemory
+from .outcome_learning import DecisionEpisode, OutcomeMemory, evaluate_episode, stable_episode_id
 from .market_data import snapshot_ticker
 from .market_intelligence import market_intelligence
 from .institutional import parse_13f, summarize_positions
@@ -25,9 +26,10 @@ from .orchestrator import ResearchOrchestrator
 from .research_collectors import COLLECTORS
 
 app=FastAPI(title="TradingDYOR", version="0.5.0")
-policy=RoutingPolicy()
+policy=RoutingPolicy.load()
 experience=ExperienceMemory()
 fabric=DecisionFabric(policy, experience)
+outcomes=OutcomeMemory()
 WEB_ROOT=Path(__file__).resolve().parent.parent / "web"
 
 @app.get("/health")
@@ -117,6 +119,52 @@ def record_experience(payload: dict):
 
 @app.get("/learning/policy")
 def learning_policy(): return policy.snapshot()
+
+@app.get("/learning/calibration")
+def learning_calibration():
+    return outcomes.calibration_stats()
+
+@app.get("/learning/outcomes")
+def learning_outcomes():
+    return {"stats": outcomes.outcome_stats(),
+            "pending": [x.__dict__ for x in outcomes.pending()],
+            "outcomes": [x.__dict__ for x in outcomes.outcomes[-100:]]}
+
+@app.post("/learning/decision")
+def record_decision(payload: dict):
+    try:
+        episode = DecisionEpisode(**payload)
+        outcomes.record_decision(episode)
+        return {"recorded": True, "episode_id": episode.id}
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(400, str(exc))
+
+@app.post("/learning/outcome/{episode_id}/evaluate")
+def evaluate_outcome(episode_id: str, benchmark: str | None = "^GSPC"):
+    episode=outcomes.get(episode_id)
+    if not episode: raise HTTPException(404, "decision episode not found")
+    try:
+        outcome=evaluate_episode(episode, benchmark=benchmark)
+        outcomes.record_outcome(outcome)
+        policy.learn_outcome(outcome, episode)
+        policy.save()
+        return outcome.__dict__
+    except Exception as exc:
+        raise HTTPException(502, f"outcome evaluation failed: {exc}")
+
+@app.post("/learning/outcomes/evaluate-due")
+def evaluate_due_outcomes(benchmark: str | None = "^GSPC"):
+    evaluated=[]
+    for episode in outcomes.pending():
+        try:
+            outcome=evaluate_episode(episode, benchmark=benchmark)
+            outcomes.record_outcome(outcome)
+            policy.learn_outcome(outcome, episode)
+            evaluated.append(outcome.__dict__)
+        except Exception:
+            continue
+    if evaluated: policy.save()
+    return {"evaluated": len(evaluated), "outcomes": evaluated, "stats": outcomes.outcome_stats()}
 
 @app.get("/learning/plan")
 def learning_plan(required_evidence: float = 0.7):

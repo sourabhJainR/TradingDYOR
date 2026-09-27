@@ -48,4 +48,6 @@ class Decision(BaseModel):
     key_reasons: list[str] = []
     risks: list[str] = []
     invalidation: list[str] = []
+    thesis: str = ""
+    strategy_scores: dict[str, float] = {}
     as_of: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
