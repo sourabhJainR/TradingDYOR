@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from tradingdyor.learning import RoutingPolicy
 from tradingdyor.outcome_learning import (
@@ -91,9 +92,9 @@ def test_evaluate_episode_uses_calendar_horizon(monkeypatch):
     )
     outcome = evaluate_episode(episode, benchmark="SPY")
     # Five calendar days after Sep 1 is Sep 6; Sep 7 is the first trading day on/after it.
-    assert outcome.realized_return == 0.10
-    assert outcome.benchmark_return == 0.02
-    assert outcome.excess_return == 0.08
+    assert outcome.realized_return == pytest.approx(0.10)
+    assert outcome.benchmark_return == pytest.approx(0.02)
+    assert outcome.excess_return == pytest.approx(0.08)
 
 
 def test_calibration_is_sample_aware(tmp_path):
