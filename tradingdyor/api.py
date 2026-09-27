@@ -24,7 +24,7 @@ from .monthly_optimizer import build_monthly_recommendations
 from .macro_intelligence import macro_state
 from .regime_intelligence import EventMemory
 from .event_intelligence import build_forecast, extract_event_candidates
-from .advance_tax import from_official_observation, official_source_status, tax_calendar
+from .advance_tax import from_official_observation, official_source_status, tax_calendar, AdvanceTaxMemory
 
 from .research_graph import ResearchGraph
 from .orchestrator import ResearchOrchestrator
@@ -185,17 +185,21 @@ def observe_event(event_id: str, payload: dict):
 def advance_tax_status(year: int | None = None):
     from datetime import datetime
     target = year or datetime.now().year
-    return {"source_status": official_source_status(), "calendar": tax_calendar(target)}
+    memory = AdvanceTaxMemory()
+    return {"source_status": official_source_status(), "calendar": tax_calendar(target), "history": memory.history(), "latest": memory.latest()}
 
 
 @app.post("/research/advance-tax")
 def record_advance_tax(payload: dict):
     try:
-        return from_official_observation(
+        signal = from_official_observation(
             str(payload["period"]), payload.get("collection"),
             payload.get("yoy_growth"), payload.get("corporate_growth"),
             payload.get("personal_growth"), payload.get("source", "Income Tax Department"),
         )
+        memory = AdvanceTaxMemory()
+        memory.record(signal)
+        return signal
     except (KeyError, ValueError, TypeError) as exc:
         raise HTTPException(400, str(exc))
 
