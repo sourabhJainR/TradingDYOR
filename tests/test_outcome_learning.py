@@ -157,3 +157,51 @@ def test_policy_persistence_and_observation_decay(tmp_path):
     loaded.update("fundamentals", True, 0.0, 0.2)
     assert loaded.capability_weight["fundamentals"] > first
     assert loaded.capability_observations["fundamentals"] == 2
+
+
+def test_calibration_exposes_horizon_quality(tmp_path):
+    memory = OutcomeMemory(tmp_path / "outcomes.json")
+    episode = DecisionEpisode(
+        id="horizon",
+        ticker="MSFT",
+        decision_at="2026-09-01T00:00:00+00:00",
+        action="BUY",
+        entry_price=100,
+        thesis="upside",
+        score=0.5,
+        confidence=0.8,
+        horizon_days=30,
+        strategy_scores={"momentum": 0.8},
+        sources=("SEC",),
+        capabilities=("fundamentals",),
+        verification_depth=1.0,
+    )
+    memory.record_decision(episode)
+    from tradingdyor.outcome_learning import Outcome
+
+    memory.record_outcome(
+        Outcome(
+            episode_id="horizon",
+            ticker="MSFT",
+            evaluated_at="2026-10-01T00:00:00+00:00",
+            horizon_days=30,
+            realized_return=0.10,
+            max_favorable_return=0.12,
+            max_adverse_return=-0.04,
+            benchmark_return=0.03,
+            excess_return=0.07,
+            directional_hit=True,
+            thesis_hit=True,
+            risk_breached=False,
+            attribution={
+                "strategies": {"momentum": 0.8},
+                "sources": {"SEC": 1.0},
+                "capabilities": {"fundamentals": 1.0},
+                "verification": {"depth": 1.0, "outcome_signal": 1.0},
+            },
+            recalibration={},
+        )
+    )
+    metrics = memory.calibration_stats()["horizons"]["30d"]
+    assert metrics["observations"] == 1.0
+    assert metrics["quality_signal"] == pytest.approx(0.07)
