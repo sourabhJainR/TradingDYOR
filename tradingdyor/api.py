@@ -120,6 +120,10 @@ def record_experience(payload: dict):
 @app.get("/learning/policy")
 def learning_policy(): return policy.snapshot()
 
+@app.get("/learning/calibration")
+def learning_calibration():
+    return outcomes.calibration_stats()
+
 @app.get("/learning/outcomes")
 def learning_outcomes():
     return {"stats": outcomes.outcome_stats(),
