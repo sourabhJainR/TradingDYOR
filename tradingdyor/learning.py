@@ -1,13 +1,14 @@
 from dataclasses import dataclass, field
+from collections import defaultdict
 from pathlib import Path
 import json
 
 @dataclass
 class RoutingPolicy:
-    capability_weight: dict[str,float] = field(default_factory=lambda: {})
-    verification_depth: dict[str,float] = field(default_factory=lambda: {})
-    retry_rate: dict[str,float] = field(default_factory=lambda: {})
-    branch_value: dict[str,float] = field(default_factory=lambda: {})
+    capability_weight: dict[str,float] = field(default_factory=lambda: defaultdict(lambda: 1.0))
+    verification_depth: dict[str,float] = field(default_factory=lambda: defaultdict(lambda: 1.0))
+    retry_rate: dict[str,float] = field(default_factory=lambda: defaultdict(lambda: 0.0))
+    branch_value: dict[str,float] = field(default_factory=lambda: defaultdict(lambda: 1.0))
 
     @classmethod
     def load(cls, path: str | Path = ".tradingdyor/policy.json"):
@@ -15,7 +16,7 @@ class RoutingPolicy:
         try:
             data=json.loads(p.read_text())
             for name in ("capability_weight","verification_depth","retry_rate","branch_value"):
-                setattr(policy,name,{k:float(v) for k,v in data.get(name,{}).items()})
+                setattr(policy,name,defaultdict(lambda: 1.0 if name != "retry_rate" else 0.0,{k:float(v) for k,v in data.get(name,{}).items()}))
         except (OSError,ValueError,TypeError):
             pass
         return policy
