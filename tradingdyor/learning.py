@@ -1,4 +1,6 @@
 from dataclasses import dataclass, field
+from pathlib import Path
+import json
 
 @dataclass
 class RoutingPolicy:
@@ -6,6 +8,21 @@ class RoutingPolicy:
     verification_depth: dict[str,float] = field(default_factory=lambda: {})
     retry_rate: dict[str,float] = field(default_factory=lambda: {})
     branch_value: dict[str,float] = field(default_factory=lambda: {})
+
+    @classmethod
+    def load(cls, path: str | Path = ".tradingdyor/policy.json"):
+        p=Path(path); policy=cls()
+        try:
+            data=json.loads(p.read_text())
+            for name in ("capability_weight","verification_depth","retry_rate","branch_value"):
+                setattr(policy,name,{k:float(v) for k,v in data.get(name,{}).items()})
+        except (OSError,ValueError,TypeError):
+            pass
+        return policy
+
+    def save(self, path: str | Path = ".tradingdyor/policy.json"):
+        p=Path(path); p.parent.mkdir(parents=True,exist_ok=True)
+        p.write_text(json.dumps(self.snapshot(),indent=2))
 
     def _get(self, table, key, default):
         if key not in table: table[key] = default
