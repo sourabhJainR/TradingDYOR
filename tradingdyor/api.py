@@ -20,6 +20,7 @@ from .macro_adapter import live_macro, fred_series
 from .sector_adapter import sector_state
 from .patents import search_patents
 from .decision_fabric import DecisionFabric
+from .monthly_optimizer import build_monthly_recommendations
 
 from .research_graph import ResearchGraph
 from .orchestrator import ResearchOrchestrator
@@ -98,6 +99,19 @@ def research_counterfactual(ticker: str, changes: dict[str, dict[str, float]], b
     selected = fabric.select_branches(list(changes), budget=max(1, min(3, budget)))
     selected_changes = {name: changes[name] for name in selected}
     return {"ticker": ticker.upper(), "selected_branches": selected, "branches": [b.__dict__ for b in evaluate_branches(snapshot, selected_changes)]}
+
+@app.get("/research/monthly-recommendations")
+def monthly_recommendations(
+    market: str = "US",
+    tickers: str | None = None,
+    benchmark: str | None = None,
+):
+    selected = [x.strip() for x in tickers.split(",") if x.strip()] if tickers else None
+    try:
+        return build_monthly_recommendations(market, selected, benchmark)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
 
 @app.get("/research/backtest/{ticker}")
 def research_backtest(ticker: str):
