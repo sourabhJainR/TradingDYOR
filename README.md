@@ -43,3 +43,10 @@ streamlit run tradingdyor/dashboard.py
 See `docs/architecture.md` for the data model and learning loop.
 
 This is research decision support, not a guarantee of returns or personalized investment advice.
+
+
+## 30-day time-bound trade planning
+
+The API endpoint `/research/monthly-recommendations?market=US` or `market=INDIA` evaluates a selected universe for a maximum 30-day trade horizon. It selects stop-loss, take-profit and holding-period parameters from historical training data, holds out the most recent 63 trading days for validation, and returns explicit entry, target, stop and time-stop levels.
+
+This is an optimization and research framework, not a guarantee of maximum future return. The engine rejects a BUY when its current momentum gate and recent out-of-sample evidence do not support a positive one-month trade case.
