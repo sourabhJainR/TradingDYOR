@@ -151,26 +151,40 @@ class OutcomeMemory:
 
             result[dimension] = {}
             for name, observations in buckets.items():
-                hits = [x.directional_hit for x in observations if x.directional_hit is not None]
-                excess = [x.excess_return for x in observations if x.excess_return is not None]
-                hit_rate = sum(hits) / len(hits) if hits else 0.0
-                # Bayesian-style shrinkage toward a neutral 50% prior avoids
-                # overreacting to one or two outcomes.
-                n = len(hits)
-                shrunk_hit_rate = (sum(hits) + 2.0 * 0.5) / (n + 2.0) if n else 0.5
-                result[dimension][name] = {
-                    "observations": float(len(observations)),
-                    "directional_hit_rate": hit_rate,
-                    "shrunk_hit_rate": shrunk_hit_rate,
-                    "avg_return": sum(x.realized_return for x in observations) / len(observations),
-                    "avg_excess_return": sum(excess) / len(excess) if excess else 0.0,
-                    "avg_max_adverse_return": sum(
-                        x.max_adverse_return for x in observations
-                    ) / len(observations),
-                    "risk_rate": sum(x.risk_breached for x in observations) / len(observations),
-                    "confidence": min(0.95, 0.5 + 0.05 * math.sqrt(len(observations))),
-                }
+                result[dimension][name] = self._calibration_metrics(observations)
+
+        horizon_buckets: dict[str, list[Outcome]] = {}
+        for outcome in self.outcomes:
+            horizon_buckets.setdefault(f"{outcome.horizon_days}d", []).append(outcome)
+        result["horizons"] = {
+            horizon: self._calibration_metrics(observations)
+            for horizon, observations in horizon_buckets.items()
+        }
         return result
+
+    @staticmethod
+    def _calibration_metrics(observations: list[Outcome]) -> dict[str, float]:
+        hits = [x.directional_hit for x in observations if x.directional_hit is not None]
+        excess = [x.excess_return for x in observations if x.excess_return is not None]
+        hit_rate = sum(hits) / len(hits) if hits else 0.0
+        n = len(hits)
+        shrunk_hit_rate = (sum(hits) + 2.0 * 0.5) / (n + 2.0) if n else 0.5
+        avg_return = sum(x.realized_return for x in observations) / len(observations)
+        avg_excess = sum(excess) / len(excess) if excess else 0.0
+        avg_adverse = sum(x.max_adverse_return for x in observations) / len(observations)
+        risk_rate = sum(x.risk_breached for x in observations) / len(observations)
+        quality = max(-1.0, min(1.0, avg_excess - abs(avg_adverse) * risk_rate))
+        return {
+            "observations": float(len(observations)),
+            "directional_hit_rate": hit_rate,
+            "shrunk_hit_rate": shrunk_hit_rate,
+            "avg_return": avg_return,
+            "avg_excess_return": avg_excess,
+            "avg_max_adverse_return": avg_adverse,
+            "risk_rate": risk_rate,
+            "quality_signal": quality,
+            "confidence": min(0.95, 0.5 + 0.05 * math.sqrt(len(observations))),
+        }
 
 
 def _safe_return(entry: float, price: float) -> float:
