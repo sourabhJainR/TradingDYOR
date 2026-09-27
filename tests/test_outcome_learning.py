@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-
 import pandas as pd
 
 from tradingdyor.learning import RoutingPolicy
