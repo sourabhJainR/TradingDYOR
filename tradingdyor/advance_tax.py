@@ -69,3 +69,29 @@ def official_source_status() -> dict:
         "note": "The system stores published advance-tax observations; it does not claim access to confidential taxpayer filings or PAN-level data.",
         "purpose": "leading macro/corporate-profit tax-flow indicator",
     }
+
+
+class AdvanceTaxMemory:
+    def __init__(self, path: str = ".tradingdyor/advance_tax.json", max_records: int = 2000):
+        import json
+        from pathlib import Path
+        self.path = Path(path)
+        self.max_records = max_records
+        try:
+            self.records = json.loads(self.path.read_text())
+        except (OSError, ValueError, TypeError):
+            self.records = []
+
+    def record(self, signal: dict):
+        import json
+        self.records = [x for x in self.records if x.get("period") != signal.get("period")]
+        self.records.append(signal)
+        self.records = self.records[-self.max_records:]
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps(self.records, indent=2))
+
+    def history(self):
+        return list(self.records)
+
+    def latest(self):
+        return self.records[-1] if self.records else None
