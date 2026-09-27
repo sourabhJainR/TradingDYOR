@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import json
 import math
@@ -55,10 +55,20 @@ class OutcomeMemory:
     def load(self) -> None:
         try:
             data = json.loads(self.path.read_text())
-            self.episodes = [DecisionEpisode(**x) for x in data.get("episodes", [])][-self.max_records:]
+            self.episodes = [self._episode_from_dict(x) for x in data.get("episodes", [])][-self.max_records:]
             self.outcomes = [Outcome(**x) for x in data.get("outcomes", [])][-self.max_records:]
         except (OSError, ValueError, TypeError):
             self.episodes, self.outcomes = [], []
+
+    @staticmethod
+    def _episode_from_dict(data: dict) -> DecisionEpisode:
+        normalized = dict(data)
+        normalized["sources"] = tuple(normalized.get("sources", ()))
+        normalized["capabilities"] = tuple(normalized.get("capabilities", ()))
+        normalized["strategy_scores"] = {
+            str(k): float(v) for k, v in normalized.get("strategy_scores", {}).items()
+        }
+        return DecisionEpisode(**normalized)
 
     def _save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -86,11 +96,13 @@ class OutcomeMemory:
         now = now or datetime.now(timezone.utc)
         done = {x.episode_id for x in self.outcomes}
         result = []
-        for e in self.episodes:
+        for episode in self.episodes:
             try:
-                due = datetime.fromisoformat(e.decision_at.replace("Z", "+00:00")).timestamp() + e.horizon_days * 86400
-                if e.id not in done and now.timestamp() >= due:
-                    result.append(e)
+                due = datetime.fromisoformat(episode.decision_at.replace("Z", "+00:00")) + timedelta(
+                    days=episode.horizon_days
+                )
+                if episode.id not in done and now >= due:
+                    result.append(episode)
             except ValueError:
                 continue
         return result
@@ -107,18 +119,79 @@ class OutcomeMemory:
             "win_rate": sum(r > 0 for r in returns) / len(returns),
             "directional_accuracy": sum(hits) / len(hits) if hits else 0.0,
             "avg_max_adverse_return": sum(x.max_adverse_return for x in xs) / len(xs),
+            "avg_excess_return": (
+                sum(x.excess_return for x in xs if x.excess_return is not None)
+                / len([x for x in xs if x.excess_return is not None])
+                if any(x.excess_return is not None for x in xs)
+                else 0.0
+            ),
         }
+
+    def calibration_stats(self) -> dict[str, dict[str, dict[str, float]]]:
+        """Return sample-aware outcome quality by strategy, source and capability.
+
+        These are observational calibration signals, not causal attribution.
+        """
+        result: dict[str, dict[str, dict[str, float]]] = {}
+        episodes = {x.id: x for x in self.episodes}
+        for dimension in ("strategies", "sources", "capabilities"):
+            buckets: dict[str, list[Outcome]] = {}
+            for outcome in self.outcomes:
+                episode = episodes.get(outcome.episode_id)
+                if not episode:
+                    continue
+                names = (
+                    episode.strategy_scores.keys()
+                    if dimension == "strategies"
+                    else getattr(episode, dimension)
+                )
+                for name in names:
+                    buckets.setdefault(str(name), []).append(outcome)
+
+            result[dimension] = {}
+            for name, observations in buckets.items():
+                hits = [x.directional_hit for x in observations if x.directional_hit is not None]
+                excess = [x.excess_return for x in observations if x.excess_return is not None]
+                hit_rate = sum(hits) / len(hits) if hits else 0.0
+                # Bayesian-style shrinkage toward a neutral 50% prior avoids
+                # overreacting to one or two outcomes.
+                n = len(hits)
+                shrunk_hit_rate = (sum(hits) + 2.0 * 0.5) / (n + 2.0) if n else 0.5
+                result[dimension][name] = {
+                    "observations": float(len(observations)),
+                    "directional_hit_rate": hit_rate,
+                    "shrunk_hit_rate": shrunk_hit_rate,
+                    "avg_return": sum(x.realized_return for x in observations) / len(observations),
+                    "avg_excess_return": sum(excess) / len(excess) if excess else 0.0,
+                    "avg_max_adverse_return": sum(
+                        x.max_adverse_return for x in observations
+                    ) / len(observations),
+                    "risk_rate": sum(x.risk_breached for x in observations) / len(observations),
+                    "confidence": min(0.95, 0.5 + 0.05 * math.sqrt(len(observations))),
+                }
+        return result
 
 
 def _safe_return(entry: float, price: float) -> float:
     return price / entry - 1.0 if entry else 0.0
 
 
+def _target_index(index, target_at: datetime) -> int:
+    """Find the first trading observation on/after the calendar target."""
+    target_date = target_at.date()
+    for position, timestamp in enumerate(index):
+        if timestamp.date() >= target_date:
+            return position
+    return len(index) - 1
+
+
 def evaluate_episode(episode: DecisionEpisode, benchmark: str | None = "^GSPC") -> Outcome:
-    end = datetime.fromisoformat(episode.decision_at.replace("Z", "+00:00"))
-    start = end.date().isoformat()
+    decision_at = datetime.fromisoformat(episode.decision_at.replace("Z", "+00:00"))
+    target_at = decision_at + timedelta(days=episode.horizon_days)
+    start = decision_at.date().isoformat()
+    calendar_days = max(episode.horizon_days + 15, 30)
     history = yf.Ticker(episode.ticker).history(
-        start=start, period=f"{max(episode.horizon_days + 10, 30)}d", auto_adjust=True
+        start=start, period=f"{calendar_days}d", auto_adjust=True
     )
     if history.empty:
         raise ValueError(f"no market history available for {episode.ticker}")
@@ -126,10 +199,9 @@ def evaluate_episode(episode: DecisionEpisode, benchmark: str | None = "^GSPC") 
     close = history["Close"].dropna()
     if close.empty:
         raise ValueError(f"no closing prices available for {episode.ticker}")
-    entry = float(episode.entry_price)
-    returns = [_safe_return(entry, float(x)) for x in close]
-    target_index = min(len(returns) - 1, episode.horizon_days)
-    realized = returns[target_index]
+    target_index = _target_index(close.index, target_at)
+    returns = [_safe_return(episode.entry_price, float(x)) for x in close.iloc[: target_index + 1]]
+    realized = returns[-1]
 
     action = episode.action.upper()
     directional_hit = None if action == "HOLD" else (
@@ -143,15 +215,16 @@ def evaluate_episode(episode: DecisionEpisode, benchmark: str | None = "^GSPC") 
     benchmark_return = None
     if benchmark:
         try:
-            bh = yf.Ticker(benchmark).history(start=start, period=f"{max(episode.horizon_days + 10, 30)}d", auto_adjust=True)["Close"].dropna()
-            if len(bh) > 1:
-                benchmark_return = float(bh.iloc[target_index] / bh.iloc[0] - 1.0) if target_index < len(bh) else float(bh.iloc[-1] / bh.iloc[0] - 1.0)
+            bh = yf.Ticker(benchmark).history(
+                start=start, period=f"{calendar_days}d", auto_adjust=True
+            )["Close"].dropna()
+            if not bh.empty:
+                benchmark_target = _target_index(bh.index, target_at)
+                benchmark_return = float(bh.iloc[benchmark_target] / bh.iloc[0] - 1.0)
         except Exception:
             benchmark_return = None
     excess = realized - benchmark_return if benchmark_return is not None else None
 
-    # Attribution is intentionally directional and bounded: it says what was
-    # aligned with the realized outcome, not that a single source caused it.
     direction = 1.0 if realized > 0 else -1.0 if realized < 0 else 0.0
     attribution = {
         "strategies": {
@@ -171,13 +244,19 @@ def evaluate_episode(episode: DecisionEpisode, benchmark: str | None = "^GSPC") 
         "risk_penalty": 1.0 if risk_breached else 0.0,
     }
     return Outcome(
-        episode_id=episode.id, ticker=episode.ticker,
+        episode_id=episode.id,
+        ticker=episode.ticker,
         evaluated_at=datetime.now(timezone.utc).isoformat(),
-        horizon_days=episode.horizon_days, realized_return=realized,
-        max_favorable_return=max_favorable, max_adverse_return=max_adverse,
-        benchmark_return=benchmark_return, excess_return=excess,
-        directional_hit=directional_hit, thesis_hit=thesis_hit,
-        risk_breached=risk_breached, attribution=attribution,
+        horizon_days=episode.horizon_days,
+        realized_return=realized,
+        max_favorable_return=max_favorable,
+        max_adverse_return=max_adverse,
+        benchmark_return=benchmark_return,
+        excess_return=excess,
+        directional_hit=directional_hit,
+        thesis_hit=thesis_hit,
+        risk_breached=risk_breached,
+        attribution=attribution,
         recalibration=recalibration,
     )
 
