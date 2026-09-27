@@ -26,3 +26,10 @@ API:
 - GET /learning/policy
 
 The research orchestrator automatically creates a 30-day episode when it produces a valid decision with a usable price.
+
+
+## Calibration
+
+Outcome calibration is sample-aware. Strategy, source, and capability statistics expose observation count, directional hit rate, shrinkage toward a neutral prior, benchmark-relative return, adverse excursion, risk rate, and a confidence signal. RoutingPolicy reduces its update rate as observations accumulate so early outcomes do not dominate later evidence.
+
+Outcome horizons are evaluated by calendar time and then aligned to the first available trading observation on or after the target date.
