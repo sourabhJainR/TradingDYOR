@@ -98,9 +98,10 @@ class OutcomeMemory:
         result = []
         for episode in self.episodes:
             try:
-                due = datetime.fromisoformat(episode.decision_at.replace("Z", "+00:00")) + timedelta(
-                    days=episode.horizon_days
-                )
+                due = datetime.fromisoformat(episode.decision_at.replace("Z", "+00:00"))
+                if due.tzinfo is None:
+                    due = due.replace(tzinfo=timezone.utc)
+                due += timedelta(days=episode.horizon_days)
                 if episode.id not in done and now >= due:
                     result.append(episode)
             except ValueError:
