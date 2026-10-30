@@ -1,4 +1,7 @@
 from pathlib import Path
+from datetime import datetime, timezone
+import os
+import hashlib
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from .models import SecuritySnapshot
@@ -22,6 +25,7 @@ from .patents import search_patents
 from .decision_fabric import DecisionFabric
 from .monthly_optimizer import build_monthly_recommendations
 from .news_sentiment import fetch_company_news
+from .point_in_time import Observation, PointInTimeStore
 
 from .research_graph import ResearchGraph
 from .orchestrator import ResearchOrchestrator
@@ -82,6 +86,122 @@ def research_market_intelligence(ticker: str):
     return market_intelligence(ticker.upper())
 
 
+
+def _source_datetime(value):
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str) and value.strip():
+        try:
+            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed.astimezone(timezone.utc)
+
+
+def _point_in_time_path():
+    return os.environ.get("TRADINGDYOR_PIT_DB", ".tradingdyor/point_in_time.sqlite")
+
+
+def _persist_brief_observations(ticker, snapshot, events, news):
+    now = datetime.now(timezone.utc)
+    snapshot_as_of = _source_datetime(snapshot.get("as_of"))
+    news_retrieved_at = _source_datetime(news.get("retrieved_at"))
+    added = 0
+    eligible_added = 0
+    try:
+        store = PointInTimeStore(_point_in_time_path())
+        try:
+            def record(observation):
+                nonlocal added, eligible_added
+                inserted = store.add(observation)
+                if inserted:
+                    added += 1
+                    anchor = _source_datetime(observation.availability_time())
+                    eligible_added += int(anchor is not None and anchor <= now)
+
+            market_url = f"https://finance.yahoo.com/quote/{ticker}"
+            for metric in (
+                "price", "market_cap", "pe", "revenue_growth", "roe",
+                "debt_to_equity", "momentum_12m", "volatility_90d",
+            ):
+                value = snapshot.get(metric)
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    continue
+                record(Observation(
+                    ticker=ticker, as_of=now, metric=metric, value=float(value),
+                    source="market-data", source_url=market_url,
+                    available_at=snapshot_as_of, retrieved_at=now,
+                    provider="yfinance", extraction_version="brief-v1",
+                ))
+            filing_rows = events.get("filings", {}).get("filings", [])
+            for filing in filing_rows if isinstance(filing_rows, list) else []:
+                if not isinstance(filing, dict):
+                    continue
+                url = filing.get("url")
+                filed = _source_datetime(filing.get("filed"))
+                if not isinstance(url, str) or not url.startswith(("https://", "http://")):
+                    continue
+                form = str(filing.get("form") or "filing")
+                document = str(filing.get("document") or "")
+                record(Observation(
+                    ticker=ticker,
+                    as_of=now,
+                    metric=f"filing:{form}:{filed.isoformat() if filed else 'unknown'}",
+                    value=document,
+                    source="SEC",
+                    source_url=url,
+                    available_at=filed,
+                    retrieved_at=now,
+                    provider="SEC",
+                    extraction_version="brief-v1",
+                ))
+            articles = news.get("articles", [])
+            for article in articles if isinstance(articles, list) else []:
+                if not isinstance(article, dict):
+                    continue
+                url = article.get("url")
+                if not isinstance(url, str) or not url.startswith(("https://", "http://")):
+                    continue
+                providers = article.get("source_providers", [])
+                source = "+".join(str(item) for item in providers) or "news"
+                published_at = _source_datetime(article.get("publish_time"))
+                observed_at = _source_datetime(article.get("seen_at"))
+                story_id = str(article.get("story_id") or "")
+                identity = story_id or hashlib.sha256(url.encode("utf-8")).hexdigest()
+                record(Observation(
+                    ticker=ticker,
+                    as_of=now,
+                    metric=f"news:{identity}",
+                    value=str(article.get("title") or ""),
+                    source=source,
+                    source_url=url,
+                    published_at=published_at,
+                    observed_at=observed_at,
+                    retrieved_at=news_retrieved_at or now,
+                    provider=source,
+                    content_digest=identity,
+                    extraction_version="brief-v1",
+                ))
+        finally:
+            store.close()
+        status = "stored" if added and eligible_added == added else "partial" if added else "empty"
+        return {
+            "status": status,
+            "observations_added": added,
+            "eligible_observations_added": eligible_added,
+            "error_type": None,
+        }
+    except Exception as exc:
+        return {
+            "status": "partial" if added else "unavailable",
+            "observations_added": added,
+            "eligible_observations_added": eligible_added,
+            "error_type": type(exc).__name__,
+        }
+
+
 @app.get("/research/brief/{ticker}")
 def research_brief(ticker: str, timespan: str = "7d"):
     """Build a partial-tolerant one-page brief from the research graph and current news."""
@@ -120,6 +240,7 @@ def research_brief(ticker: str, timespan: str = "7d"):
     }
     market = "INDIA" if symbol.endswith((".NS", ".BO")) else "US"
     news = fetch_company_news(symbol, company_name, timespan=timespan, market=market)
+    point_in_time = _persist_brief_observations(symbol, snapshot, {"filings": node_result("filings")}, news)
     source_names = {
         "fundamentals": "Company fundamentals",
         "filings": "Regulatory filings",
@@ -177,8 +298,39 @@ def research_brief(ticker: str, timespan: str = "7d"):
             "coverage": decision.get("evidence_coverage", 0.0),
             "sources": sources,
         },
+        "point_in_time": point_in_time,
         "advisory_only": True,
     }
+
+
+@app.get("/research/history/{ticker}")
+def research_history(ticker: str, as_of: datetime | None = None):
+    symbol = ticker.strip().upper()
+    if not symbol or len(symbol) > 15 or not symbol[0].isalnum() or any(ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-" for ch in symbol):
+        raise HTTPException(400, "invalid ticker symbol")
+    try:
+        store = PointInTimeStore(_point_in_time_path())
+    except Exception as exc:
+        raise HTTPException(503, f"point-in-time store unavailable: {type(exc).__name__}")
+    try:
+        rows = store.latest(symbol, as_of)
+        return {
+            "ticker": symbol,
+            "as_of": as_of,
+            "observation_count": len(rows),
+            "observations": [{
+                "metric": row.metric, "value": row.value, "source": row.source,
+                "source_url": row.source_url, "confidence": row.confidence,
+                "available_at": row.available_at, "published_at": row.published_at,
+                "observed_at": row.observed_at, "retrieved_at": row.retrieved_at,
+                "provider": row.provider, "content_digest": row.content_digest,
+                "extraction_version": row.extraction_version,
+            } for row in rows],
+        }
+    except Exception as exc:
+        raise HTTPException(503, f"point-in-time history unavailable: {type(exc).__name__}")
+    finally:
+        store.close()
 
 
 @app.get("/research/news/{ticker}")

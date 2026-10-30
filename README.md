@@ -62,3 +62,8 @@ API:
 - `GET /brief/{ticker}` — responsive one-page UI.
 
 The news adapter does not infer publication time from GDELT's seen time. Missing publication timestamps remain null. The one-page brief runs its company collectors through the research graph: successful providers remain visible when another provider fails, the synthesis is marked partial, and evidence coverage/confidence are capped by completed selected tasks. This first slice does not yet provide a full-market screener or independently verified news coverage; use explicit ticker universes and treat unavailable provider data as unknown. No trade execution is supported.
+
+
+## Point-in-time evidence
+
+The SQLite-backed `PointInTimeStore` preserves available, published, observed and retrieved times independently, excludes retrieval-only and future evidence from historical queries, and deduplicates repeated observations. Forward-return measurement defaults to the next trading session after a signal to avoid same-day look-ahead. See `docs/POINT_IN_TIME_EVIDENCE.md`. The one-page brief now persists price/fundamental metrics, SEC filing observations and news stories into the store. `GET /research/history/{ticker}?as_of=...` returns the latest eligible observation per metric. Other research collectors are not yet fully wired to it.
