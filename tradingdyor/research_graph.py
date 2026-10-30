@@ -68,6 +68,12 @@ class ResearchGraph:
         n.completed_at = datetime.now(timezone.utc).isoformat()
         n.error = error
 
+    def unavailable(self, task_id: str, reason: str) -> None:
+        n = self.nodes[task_id]
+        n.status = "unavailable"
+        n.completed_at = datetime.now(timezone.utc).isoformat()
+        n.error = reason
+
     def snapshot(self) -> dict:
         return {
             "nodes": {
