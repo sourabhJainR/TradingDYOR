@@ -190,3 +190,20 @@ def test_both_news_sources_unavailable_is_not_a_success():
     assert result["status"] == "unavailable"
     assert result["articles"] == []
     assert all(x["status"] == "unavailable" for x in result["providers"])
+
+
+def test_oversized_google_news_response_fails_closed():
+    class LargeResponse:
+        content = b"x" * 1_000_001
+
+        def raise_for_status(self):
+            return None
+
+    class LargeSession:
+        def get(self, *_args, **_kwargs):
+            return LargeResponse()
+
+    result = fetch_company_news("ACME", include_gdelt=False, rss_session=LargeSession())
+    assert result["status"] == "unavailable"
+    assert result["providers"][0]["error_type"] == "ValueError"
+    assert result["articles"] == []
