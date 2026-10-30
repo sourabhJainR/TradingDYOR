@@ -59,7 +59,7 @@ async function load(){
   ],x=>'<strong>'+esc(x.name)+'</strong><div class="small">'+esc(x.value)+' · '+esc(x.status)+'</div>');
   list("risks",[...(r.risks||[]).map(x=>({kind:"Risk",text:x})),...(r.invalidation||[]).map(x=>({kind:"Invalidation",text:x}))],x=>'<strong>'+esc(x.kind)+'</strong><div>'+esc(x.text)+'</div>');
   list("sources",d.evidence?.sources||[],x=>'<div class="row"><strong>'+esc(x.name)+'</strong><span class="pill">'+esc(x.status)+'</span></div><div class="small">Retrieved '+time(x.retrieved_at)+' · as of '+time(x.as_of)+'</div>');
-  $("status").textContent="Brief refreshed "+new Date().toLocaleString()+". News provider: "+esc(n.status||"unknown")+".";
+  $("status").textContent="Research: "+esc(d.research?.status||"unknown")+". Brief refreshed "+new Date().toLocaleString()+". News provider: "+esc(n.status||"unknown")+".";
  }catch(e){$("status").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
 }
 const path=decodeURIComponent(location.pathname.split("/").pop()||"");$("ticker").value=path==="brief"?"NVDA":path;
