@@ -121,8 +121,10 @@ def _persist_brief_observations(ticker, snapshot, events, news):
                     eligible_added += int(observation.availability_time() is not None)
 
             market_url = f"https://finance.yahoo.com/quote/{ticker}"
-            for metric in ("price", "market_cap", "pe", "revenue_growth", "roe",
-                           "debt_to_equity", "momentum_12m", "volatility_90d"):
+            for metric in (
+                "price", "market_cap", "pe", "revenue_growth", "roe",
+                "debt_to_equity", "momentum_12m", "volatility_90d",
+            ):
                 value = snapshot.get(metric)
                 if isinstance(value, bool) or not isinstance(value, (int, float)):
                     continue
@@ -131,7 +133,7 @@ def _persist_brief_observations(ticker, snapshot, events, news):
                     source="market-data", source_url=market_url,
                     available_at=snapshot_as_of, retrieved_at=now,
                     provider="yfinance", extraction_version="brief-v1",
-                )))
+                ))
             filing_rows = events.get("filings", {}).get("filings", [])
             for filing in filing_rows if isinstance(filing_rows, list) else []:
                 if not isinstance(filing, dict):
@@ -142,10 +144,16 @@ def _persist_brief_observations(ticker, snapshot, events, news):
                     continue
                 form = str(filing.get("form") or "filing")
                 document = str(filing.get("document") or "")
-                added += int(store.add(Observation(
-                    ticker=ticker, as_of=now, metric=f"filing:{form}:{filed.isoformat() if filed else 'unknown'}",
-                    value=document, source="SEC", source_url=url,
-                    available_at=filed, retrieved_at=now, provider="SEC",
+                record(Observation(
+                    ticker=ticker,
+                    as_of=now,
+                    metric=f"filing:{form}:{filed.isoformat() if filed else 'unknown'}",
+                    value=document,
+                    source="SEC",
+                    source_url=url,
+                    available_at=filed,
+                    retrieved_at=now,
+                    provider="SEC",
                     extraction_version="brief-v1",
                 ))
             articles = news.get("articles", [])
@@ -161,19 +169,36 @@ def _persist_brief_observations(ticker, snapshot, events, news):
                 observed_at = _source_datetime(article.get("seen_at"))
                 story_id = str(article.get("story_id") or "")
                 identity = story_id or hashlib.sha256(url.encode("utf-8")).hexdigest()
-                added += int(store.add(Observation(
-                    ticker=ticker, as_of=now, metric=f"news:{identity}",
-                    value=str(article.get("title") or ""), source=source, source_url=url,
-                    published_at=published_at, observed_at=observed_at,
-                    retrieved_at=news_retrieved_at or now, provider=source,
-                    content_digest=identity, extraction_version="brief-v1",
+                record(Observation(
+                    ticker=ticker,
+                    as_of=now,
+                    metric=f"news:{identity}",
+                    value=str(article.get("title") or ""),
+                    source=source,
+                    source_url=url,
+                    published_at=published_at,
+                    observed_at=observed_at,
+                    retrieved_at=news_retrieved_at or now,
+                    provider=source,
+                    content_digest=identity,
+                    extraction_version="brief-v1",
                 ))
         finally:
             store.close()
         status = "stored" if added and eligible_added == added else "partial" if added else "empty"
-        return {"status": status, "observations_added": added, "eligible_observations_added": eligible_added, "error_type": None}
+        return {
+            "status": status,
+            "observations_added": added,
+            "eligible_observations_added": eligible_added,
+            "error_type": None,
+        }
     except Exception as exc:
-        return {"status": "partial" if added else "unavailable", "observations_added": added, "eligible_observations_added": eligible_added, "error_type": type(exc).__name__}
+        return {
+            "status": "partial" if added else "unavailable",
+            "observations_added": added,
+            "eligible_observations_added": eligible_added,
+            "error_type": type(exc).__name__,
+        }
 
 
 @app.get("/research/brief/{ticker}")
