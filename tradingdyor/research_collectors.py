@@ -45,6 +45,15 @@ def earnings(ticker: str) -> dict:
     return {"evidence_count": len(rows), "signal": signal, "claims": _claims("Market data", [("earnings observations", len(rows)), ("earnings signal", signal)])}
 
 
+def corporate_actions(ticker: str) -> dict:
+    rows = corporate_actions_history(ticker.upper())
+    return {
+        "evidence_count": len(rows),
+        "actions": rows,
+        "claims": _claims("Market data", [("corporate actions", len(rows))]),
+    }
+
+
 def sector(ticker: str) -> dict:
     # Sector lookup is intentionally separated from ticker identity resolution.
     s = snapshot_ticker(ticker.upper())
@@ -71,6 +80,7 @@ COLLECTORS = {
     "filings": filings,
     "insiders": insiders,
     "earnings": earnings,
+    "corporate_actions": corporate_actions,
     "sector": sector,
     "macro": macro,
     "patents": patents,

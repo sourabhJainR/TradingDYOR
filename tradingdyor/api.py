@@ -21,6 +21,7 @@ from .sector_adapter import sector_state
 from .patents import search_patents
 from .decision_fabric import DecisionFabric
 from .monthly_optimizer import build_monthly_recommendations
+from .news_sentiment import fetch_company_news
 
 from .research_graph import ResearchGraph
 from .orchestrator import ResearchOrchestrator
@@ -42,6 +43,9 @@ def sources(): return [s.__dict__ for s in SOURCES]
 
 @app.get("/")
 def spa(): return FileResponse(WEB_ROOT / "index.html")
+
+@app.get("/brief/{ticker}")
+def one_page_brief_app(ticker: str): return FileResponse(WEB_ROOT / "brief.html")
 
 @app.post("/research/score")
 def score(snapshot: SecuritySnapshot):
@@ -76,6 +80,111 @@ def research_evidence(ticker: str):
 @app.get("/research/market-intelligence/{ticker}")
 def research_market_intelligence(ticker: str):
     return market_intelligence(ticker.upper())
+
+
+@app.get("/research/brief/{ticker}")
+def research_brief(ticker: str, timespan: str = "7d"):
+    """Build a partial-tolerant one-page brief from the research graph and current news."""
+    symbol = ticker.strip().upper()
+    if not symbol or len(symbol) > 15 or not symbol[0].isalnum() or any(ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-" for ch in symbol):
+        raise HTTPException(400, "invalid ticker symbol")
+    if timespan not in {"1d", "3d", "7d", "14d", "30d"}:
+        raise HTTPException(400, "timespan must be one of 1d, 3d, 7d, 14d, 30d")
+    try:
+        run = ResearchOrchestrator(fabric).run(symbol, COLLECTORS)
+    except Exception as exc:
+        raise HTTPException(502, f"research graph unavailable: {type(exc).__name__}")
+    nodes = run.graph.get("nodes", {}) if isinstance(run.graph, dict) else {}
+
+    def node_result(name: str) -> dict:
+        node = nodes.get(name, {})
+        result = node.get("result") if isinstance(node, dict) else None
+        return result if isinstance(result, dict) else {}
+
+    fundamentals = node_result("fundamentals")
+    snapshot = fundamentals.get("snapshot") or {}
+    company_name = snapshot.get("company_name")
+    decision = run.decision if isinstance(run.decision, dict) and run.decision.get("action") else {
+        "ticker": symbol,
+        "action": "HOLD",
+        "score": 0.0,
+        "confidence": 0.0,
+        "evidence_coverage": 0.0,
+        "strategy_agreement": 0.0,
+        "thesis": "HOLD: company fundamentals were unavailable; no recommendation is supported.",
+        "key_reasons": ["Fundamental snapshot unavailable"],
+        "risks": ["Research providers did not return enough evidence"],
+        "invalidation": [],
+        "research_status": "unavailable",
+        "missing_research_tasks": ["fundamentals"],
+    }
+    news = fetch_company_news(symbol, company_name, timespan=timespan)
+    source_names = {
+        "fundamentals": "Company fundamentals",
+        "filings": "Regulatory filings",
+        "insiders": "Insider activity",
+        "earnings": "Earnings",
+        "corporate_actions": "Corporate actions",
+        "sector": "Sector context",
+        "macro": "Macro context",
+        "patents": "Innovation and patents",
+        "institutional": "Institutional activity",
+    }
+    sources = []
+    for key, label in source_names.items():
+        node = nodes.get(key, {}) if isinstance(nodes, dict) else {}
+        sources.append({
+            "name": label,
+            "status": node.get("status", "not_selected") if isinstance(node, dict) else "unknown",
+            "evidence_count": node.get("evidence_count", 0) if isinstance(node, dict) else 0,
+        })
+    sources.append({
+        "name": "GDELT news",
+        "status": news.get("status"),
+        "retrieved_at": news.get("retrieved_at"),
+    })
+    return {
+        "ticker": symbol,
+        "company": {
+            "name": company_name,
+            "sector": snapshot.get("sector"),
+            "market_cap": snapshot.get("market_cap"),
+            "price": snapshot.get("price"),
+            "currency": "USD" if not symbol.endswith((".NS", ".BO")) else "INR",
+            "as_of": snapshot.get("as_of"),
+        },
+        "recommendation": decision,
+        "fundamentals": snapshot,
+        "events": {
+            "filings": node_result("filings"),
+            "earnings": node_result("earnings"),
+            "insiders": node_result("insiders"),
+            "corporate_actions": node_result("corporate_actions"),
+            "sector": node_result("sector"),
+            "macro": node_result("macro"),
+            "patents": node_result("patents"),
+        },
+        "news": news,
+        "research": {
+            "status": decision.get("research_status", "complete"),
+            "evidence_yield": run.evidence_yield,
+            "duration_ms": run.duration_ms,
+            "contradictions": run.contradictions,
+        },
+        "evidence": {
+            "coverage": decision.get("evidence_coverage", 0.0),
+            "sources": sources,
+        },
+        "advisory_only": True,
+    }
+
+
+@app.get("/research/news/{ticker}")
+def research_news(ticker: str, timespan: str = "7d", limit: int = 25):
+    try:
+        return fetch_company_news(ticker, timespan=timespan, limit=limit)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
 
 @app.get("/research/macro")
 def research_macro(series_id: str | None = None):

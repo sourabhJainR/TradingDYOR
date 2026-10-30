@@ -31,6 +31,7 @@ DEFAULT_TASKS = (
     ResearchTask("filings", "filings", "Review recent regulatory filings and event signals", expected_evidence_yield=0.9, cost=1.2),
     ResearchTask("insiders", "insiders", "Review recent insider transactions", expected_evidence_yield=0.6, cost=1.0),
     ResearchTask("earnings", "earnings", "Review earnings history and surprises", expected_evidence_yield=0.7, cost=1.0),
+    ResearchTask("corporate_actions", "corporate_actions", "Review dividends, splits and other corporate actions", expected_evidence_yield=0.5, cost=0.7),
     ResearchTask("institutional", "institutional", "Review institutional ownership/flow evidence", expected_evidence_yield=0.5, cost=1.5),
     ResearchTask("sector", "sector", "Assess sector relative strength and regime", expected_evidence_yield=0.7, cost=0.8),
     ResearchTask("macro", "macro", "Assess market and macro regime", expected_evidence_yield=0.6, cost=0.8),
@@ -46,7 +47,7 @@ class ResearchGraph:
     def ready(self) -> list[ResearchNode]:
         return [
             n for n in self.nodes.values()
-            if n.status == "pending" and all(self.nodes[d].status == "completed" for d in n.task.depends_on)
+            if n.status == "pending" and all(self.nodes[d].status in {"completed", "failed", "unavailable", "skipped"} for d in n.task.depends_on)
         ]
 
     def start(self, task_id: str) -> None:
@@ -67,6 +68,12 @@ class ResearchGraph:
         n.completed_at = datetime.now(timezone.utc).isoformat()
         n.error = error
 
+    def unavailable(self, task_id: str, reason: str) -> None:
+        n = self.nodes[task_id]
+        n.status = "unavailable"
+        n.completed_at = datetime.now(timezone.utc).isoformat()
+        n.error = reason
+
     def snapshot(self) -> dict:
         return {
             "nodes": {
@@ -83,4 +90,5 @@ class ResearchGraph:
             },
             "completed": sum(n.status == "completed" for n in self.nodes.values()),
             "failed": sum(n.status == "failed" for n in self.nodes.values()),
+            "unavailable": sum(n.status == "unavailable" for n in self.nodes.values()),
         }
