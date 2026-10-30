@@ -64,7 +64,9 @@ class PointInTimeStore:
         if self.db_path != ":memory:":
             Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
-        self._connection = sqlite3.connect(self.db_path, check_same_thread=False)
+        self._connection = sqlite3.connect(self.db_path, check_same_thread=False, timeout=5.0)
+        self._connection.execute("PRAGMA busy_timeout=5000")
+        self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute("""
             CREATE TABLE IF NOT EXISTS observations (
                 observation_id TEXT PRIMARY KEY,
