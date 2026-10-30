@@ -4,7 +4,8 @@ from tradingdyor.api import app
 from types import SimpleNamespace
 
 
-def test_one_page_brief_combines_company_recommendation_news_and_provenance(monkeypatch):
+def test_one_page_brief_combines_company_recommendation_news_and_provenance(monkeypatch, tmp_path):
+    monkeypatch.setenv("TRADINGDYOR_PIT_DB", str(tmp_path / "brief.sqlite"))
     graph = {"nodes": {
         "fundamentals": {"status": "completed", "evidence_count": 3, "result": {
             "snapshot": {
@@ -43,6 +44,13 @@ def test_one_page_brief_combines_company_recommendation_news_and_provenance(monk
     assert data["recommendation"]["action"] == "HOLD"
     assert data["news"]["sentiment"]["status"] == "unscored"
     assert data["evidence"]["sources"][-1]["name"] == "Google News RSS"
+    assert data["point_in_time"]["status"] == "stored"
+    assert data["point_in_time"]["observations_added"] == 3
+    history = TestClient(app).get("/research/history/EXAMPLE", params={"as_of": "2026-10-31T00:00:00+00:00"})
+    assert history.status_code == 200
+    history_data = history.json()
+    assert history_data["observation_count"] == 2
+    assert {item["metric"] for item in history_data["observations"]} == {"price", "market_cap"}
     assert data["research"]["status"] == "partial"
     assert next(x for x in data["evidence"]["sources"] if x["name"] == "Regulatory filings")["status"] == "failed"
     assert data["advisory_only"] is True
@@ -65,7 +73,8 @@ def test_one_page_brief_rejects_invalid_ticker_before_provider_calls(monkeypatch
     assert response.json()["detail"] == "invalid ticker symbol"
 
 
-def test_one_page_brief_abstains_when_graph_has_no_fundamental_snapshot(monkeypatch):
+def test_one_page_brief_abstains_when_graph_has_no_fundamental_snapshot(monkeypatch, tmp_path):
+    monkeypatch.setenv("TRADINGDYOR_PIT_DB", str(tmp_path / "empty.sqlite"))
     run = SimpleNamespace(
         graph={"nodes": {"fundamentals": {"status": "failed", "result": None, "evidence_count": 0}}},
         decision={"status": "unavailable"},
