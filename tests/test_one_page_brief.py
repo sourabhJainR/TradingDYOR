@@ -62,3 +62,25 @@ def test_one_page_brief_rejects_invalid_ticker_before_provider_calls(monkeypatch
     response = TestClient(app).get("/research/brief/ACME%21")
     assert response.status_code == 400
     assert response.json()["detail"] == "invalid ticker symbol"
+
+
+def test_one_page_brief_abstains_when_graph_has_no_fundamental_snapshot(monkeypatch):
+    run = SimpleNamespace(
+        graph={"nodes": {"fundamentals": {"status": "failed", "result": None, "evidence_count": 0}}},
+        decision={"status": "unavailable"},
+        evidence_yield=0.0,
+        duration_ms=10.0,
+        contradictions=[],
+    )
+    monkeypatch.setattr("tradingdyor.api.ResearchOrchestrator",
+                        lambda _fabric: SimpleNamespace(run=lambda _ticker, _collectors: run))
+    monkeypatch.setattr("tradingdyor.api.fetch_company_news", lambda *args, **kwargs: {
+        "status": "unavailable", "retrieved_at": "2026-10-30T12:05:00+00:00",
+        "articles": [], "sentiment": {"status": "unscored", "sample_count": 0,
+                                      "publisher_count": 0},
+    })
+
+    data = TestClient(app).get("/research/brief/EXAMPLE").json()
+    assert data["recommendation"]["action"] == "HOLD"
+    assert data["recommendation"]["research_status"] == "unavailable"
+    assert data["company"]["price"] is None
