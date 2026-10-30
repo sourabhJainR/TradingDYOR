@@ -19,6 +19,7 @@
 </section>
 <section class="grid">
 <div class="card"><h2>Investment view</h2><div id="thesis"></div><div class="small" id="score" style="margin-top:8px"></div><h2 style="margin-top:16px">Key reasons</h2><div id="reasons" class="rows"></div></div>
+<div class="card"><h2>Key fundamentals</h2><div id="fundamentals" class="rows"></div></div>
 <div class="card"><h2>News sentiment</h2><div id="sentiment" class="score">Unscored</div><div id="sentimentMeta" class="small"></div><div id="newsRows" class="rows" style="margin-top:12px"></div></div>
 <div class="card"><h2>Company events</h2><div id="events" class="rows"></div></div>
 <div class="card"><h2>Risks and invalidation</h2><div id="risks" class="rows"></div></div>
@@ -47,6 +48,15 @@ async function load(){
   $("thesis").textContent=r.thesis||"Insufficient evidence for a supported thesis.";
   $("score").textContent="Ensemble score "+Number(r.score||0).toFixed(2)+" · Strategy agreement "+Math.round(Number(r.strategy_agreement||0)*100)+"%";
   list("reasons",r.key_reasons,x=>esc(x));
+  const f=d.fundamentals||{};
+  list("fundamentals",[
+   {name:"P/E",value:f.pe,format:"multiple"},
+   {name:"Revenue growth",value:f.revenue_growth,format:"percent"},
+   {name:"ROE",value:f.roe,format:"percent"},
+   {name:"Debt / equity",value:f.debt_to_equity,format:"multiple"},
+   {name:"12-month momentum",value:f.momentum_12m,format:"percent"},
+   {name:"90-day volatility",value:f.volatility_90d,format:"percent"}
+  ],x=>'<div class="row"><strong>'+esc(x.name)+'</strong><span>'+ (x.value==null?"Unavailable":x.format==="percent"?(Number(x.value)*100).toFixed(1)+"%":Number(x.value).toFixed(2)) +'</span></div>');
   $("sentiment").textContent=s.status==="scored"?Number(s.score).toFixed(2):"Unscored";
   $("sentimentMeta").textContent=(s.method||"No sentiment method")+". Sample "+(s.sample_count||0)+" articles across "+(s.publisher_count||0)+" publishers. Confidence "+Math.round(Number(s.confidence||0)*100)+"%. "+(s.reason||"");
   list("newsRows",n.articles||[],x=>{const sourceTime=x.publish_time?"Published "+time(x.publish_time):x.seen_at?"Seen "+time(x.seen_at):"Source time unavailable";return '<div class="row"><strong>'+esc(x.event_type)+'</strong><span class="small">'+sourceTime+'</span></div><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.title)+'</a><div class="small">'+esc(x.publisher)+' · '+esc((x.source_providers||[]).join(", "))+' · tone '+(x.tone==null?"unavailable":Number(x.tone).toFixed(2))+'</div>'});
