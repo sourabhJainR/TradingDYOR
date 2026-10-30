@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 import tempfile
 from pathlib import Path
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 
@@ -145,6 +146,28 @@ class PointInTimeStoreTests(unittest.TestCase):
             ))
         finally:
             store.close()
+
+
+    def test_concurrent_duplicate_ingestion_is_idempotent_across_connections(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "observations.sqlite"
+            first = PointInTimeStore(path)
+            second = PointInTimeStore(path)
+            row = Observation(
+                ticker="ABC", as_of=dt("2026-06-01T12:00:00"),
+                metric="price", value=12.5, source="market-data",
+                source_url="https://data.example/abc",
+                available_at=dt("2026-06-01T12:00:00"),
+            )
+            try:
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    results = list(pool.map(lambda store: store.add(row), (first, second)))
+                self.assertEqual(sorted(results), [False, True])
+                self.assertEqual(len(first.latest("ABC", dt("2026-06-02T00:00:00"))), 1)
+            finally:
+                first.close()
+                second.close()
+
 
 
 if __name__ == "__main__":
