@@ -42,7 +42,7 @@ async function load(){
   $("company").textContent=c.name||d.ticker;$("sector").textContent=c.sector||"Sector unavailable";
   $("asof").textContent="Market data as of "+time(c.as_of);
   $("price").textContent=c.price==null?"Unavailable":Number(c.price).toLocaleString(undefined,{maximumFractionDigits:2})+" "+(c.currency||"");
-  $("marketcap").textContent=c.market_cap==null?"Market cap unavailable":"Market cap "+Number(c.market_cap).toLocaleString();
+  $("marketcap").textContent=c.market_cap==null?"Market cap unavailable":"Market cap "+Number(c.market_cap).toLocaleString()+" "+(c.currency||"");
   $("action").textContent=r.action||"HOLD";$("confidence").textContent="Model confidence "+Math.round(Number(r.confidence||0)*100)+"%";
   $("coverage").textContent=Math.round(Number(r.evidence_coverage||0)*100)+"%";
   $("thesis").textContent=r.thesis||"Insufficient evidence for a supported thesis.";
@@ -58,7 +58,7 @@ async function load(){
    {name:"90-day volatility",value:f.volatility_90d,format:"percent"}
   ],x=>'<div class="row"><strong>'+esc(x.name)+'</strong><span>'+ (x.value==null?"Unavailable":x.format==="percent"?(Number(x.value)*100).toFixed(1)+"%":Number(x.value).toFixed(2)) +'</span></div>');
   $("sentiment").textContent=s.status==="scored"?Number(s.score).toFixed(2):"Unscored";
-  $("sentimentMeta").textContent=(s.method||"No sentiment method")+". Sample "+(s.sample_count||0)+" articles across "+(s.publisher_count||0)+" publishers. Confidence "+Math.round(Number(s.confidence||0)*100)+"%. "+(s.reason||"");
+  $("sentimentMeta").textContent=(s.method||"No sentiment method")+". Sample "+(s.sample_count||0)+" articles across "+(s.publisher_count||0)+" publishers. Confidence "+Math.round(Number(s.confidence||0)*100)+"%. "+(s.reason||"")+" Sentiment is contextual and does not override fundamentals.";
   list("newsRows",n.articles||[],x=>{const sourceTime=x.publish_time?"Published "+time(x.publish_time):x.seen_at?"Seen "+time(x.seen_at):"Source time unavailable";return '<div class="row"><strong>'+esc(x.event_type)+'</strong><span class="small">'+sourceTime+'</span></div><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.title)+'</a><div class="small">'+esc(x.publisher)+' · '+esc((x.source_providers||[]).join(", "))+' · tone '+(x.tone==null?"unavailable":Number(x.tone).toFixed(2))+'</div>'});
   const ev=d.events||{},fil=ev.filings||{},earn=ev.earnings||{},ins=ev.insiders||{},ca=ev.corporate_actions||{};
   list("events",[
