@@ -6,4 +6,6 @@ __pycache__/
 data/*.db
 data/cache/
 node_modules/
-\n.tradingdyor/\ndata/*.sqlite\n
+
+.tradingdyor/
+data/*.sqlite
