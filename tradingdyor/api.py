@@ -308,7 +308,10 @@ def research_history(ticker: str, as_of: datetime | None = None):
     symbol = ticker.strip().upper()
     if not symbol or len(symbol) > 15 or not symbol[0].isalnum() or any(ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-" for ch in symbol):
         raise HTTPException(400, "invalid ticker symbol")
-    store = PointInTimeStore(_point_in_time_path())
+    try:
+        store = PointInTimeStore(_point_in_time_path())
+    except Exception as exc:
+        raise HTTPException(503, f"point-in-time store unavailable: {type(exc).__name__}")
     try:
         rows = store.latest(symbol, as_of)
         return {
@@ -324,6 +327,8 @@ def research_history(ticker: str, as_of: datetime | None = None):
                 "extraction_version": row.extraction_version,
             } for row in rows],
         }
+    except Exception as exc:
+        raise HTTPException(503, f"point-in-time history unavailable: {type(exc).__name__}")
     finally:
         store.close()
 
