@@ -31,6 +31,7 @@ def test_one_page_brief_combines_company_recommendation_news_and_provenance(monk
                         lambda _fabric: SimpleNamespace(run=lambda _ticker, _collectors: run))
     monkeypatch.setattr("tradingdyor.api.fetch_company_news", lambda *args, **kwargs: {
         "status": "available", "retrieved_at": "2026-10-30T12:05:00+00:00",
+        "providers": [{"name": "GDELT", "status": "empty"}, {"name": "Google News RSS", "status": "available"}],
         "articles": [{"title": "Example Corp update", "url": "https://news.example/story"}],
         "sentiment": {"status": "unscored", "sample_count": 1, "publisher_count": 1},
     })
@@ -41,7 +42,7 @@ def test_one_page_brief_combines_company_recommendation_news_and_provenance(monk
     assert data["company"]["name"] == "Example Corp"
     assert data["recommendation"]["action"] == "HOLD"
     assert data["news"]["sentiment"]["status"] == "unscored"
-    assert data["evidence"]["sources"][-1]["name"] == "GDELT news"
+    assert data["evidence"]["sources"][-1]["name"] == "Google News RSS"
     assert data["research"]["status"] == "partial"
     assert next(x for x in data["evidence"]["sources"] if x["name"] == "Regulatory filings")["status"] == "failed"
     assert data["advisory_only"] is True
