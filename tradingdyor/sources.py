@@ -62,3 +62,5 @@ SOURCES.extend([
     Source("FRED API","https://fred.stlouisfed.org/docs/api/fred/overview.html","macro"),
     Source("USPTO Open Data","https://developer.uspto.gov/","patents"),
 ])
+
+SOURCES.append(Source("GDELT DOC API","https://api.gdeltproject.org/api/v2/doc/doc","news"))
