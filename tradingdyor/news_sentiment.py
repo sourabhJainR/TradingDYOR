@@ -15,6 +15,7 @@ import requests
 GDELT_DOC_API = "https://api.gdeltproject.org/api/v2/doc/doc"
 GOOGLE_NEWS_RSS = "https://news.google.com/rss/search"
 DEFAULT_TIMEOUT_SECONDS = 8.0
+MAX_NEWS_RESPONSE_BYTES = 1_000_000
 MIN_SENTIMENT_ARTICLES = 5
 MIN_SENTIMENT_PUBLISHERS = 3
 
@@ -189,6 +190,9 @@ def _fetch_gdelt(
             timeout=timeout,
         )
         response.raise_for_status()
+        raw_content = getattr(response, "content", None)
+        if isinstance(raw_content, (bytes, bytearray)) and len(raw_content) > MAX_NEWS_RESPONSE_BYTES:
+            raise ValueError("GDELT response exceeded the configured size limit")
         payload = response.json()
         raw_articles = payload.get("articles", []) if isinstance(payload, dict) else []
         if not isinstance(raw_articles, list):
@@ -226,6 +230,8 @@ def _fetch_google_news(
         )
         response.raise_for_status()
         raw_content = getattr(response, "content", None)
+        if isinstance(raw_content, (bytes, bytearray)) and len(raw_content) > MAX_NEWS_RESPONSE_BYTES:
+            raise ValueError("Google News RSS response exceeded the configured size limit")
         if raw_content is None:
             raw_text = getattr(response, "text", "")
             raw_content = raw_text.encode("utf-8") if isinstance(raw_text, str) else b""
