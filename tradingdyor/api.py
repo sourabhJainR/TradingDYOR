@@ -86,6 +86,10 @@ def research_market_intelligence(ticker: str):
 def research_brief(ticker: str, timespan: str = "7d"):
     """Compose the one-page company brief from existing research and current news."""
     symbol = ticker.strip().upper()
+    if not symbol or len(symbol) > 15 or not symbol[0].isalnum() or any(ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-" for ch in symbol):
+        raise HTTPException(400, "invalid ticker symbol")
+    if timespan not in {"1d", "3d", "7d", "14d", "30d"}:
+        raise HTTPException(400, "timespan must be one of 1d, 3d, 7d, 14d, 30d")
     try:
         result = research_ticker(symbol)
     except Exception as exc:
