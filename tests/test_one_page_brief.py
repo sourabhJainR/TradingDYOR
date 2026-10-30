@@ -50,6 +50,6 @@ def test_one_page_brief_rejects_invalid_ticker_before_provider_calls(monkeypatch
         raise AssertionError("provider must not be called for invalid ticker")
 
     monkeypatch.setattr("tradingdyor.api.research_ticker", unexpected)
-    response = TestClient(app).get("/research/brief/ACME%2FPRIVATE")
+    response = TestClient(app).get("/research/brief/ACME%21")
     assert response.status_code == 400
     assert response.json()["detail"] == "invalid ticker symbol"
