@@ -43,3 +43,13 @@ def test_one_page_brief_ui_is_served():
     assert response.status_code == 200
     assert "One-page evidence-first stock brief" in response.text
     assert "News sentiment" in response.text
+
+
+def test_one_page_brief_rejects_invalid_ticker_before_provider_calls(monkeypatch):
+    def unexpected(_ticker):
+        raise AssertionError("provider must not be called for invalid ticker")
+
+    monkeypatch.setattr("tradingdyor.api.research_ticker", unexpected)
+    response = TestClient(app).get("/research/brief/ACME%2FPRIVATE")
+    assert response.status_code == 400
+    assert response.json()["detail"] == "invalid ticker symbol"
