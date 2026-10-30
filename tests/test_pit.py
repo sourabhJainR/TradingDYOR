@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 def test_point_in_time_excludes_future_observations():
     s=PointInTimeStore()
-    s.add(Observation("ABC",datetime(2025,1,1,tzinfo=timezone.utc),"pe",10,"x","u"))
+    s.add(Observation("ABC",datetime(2025,1,1,tzinfo=timezone.utc),"pe",10,"x","https://example.com/source"))
     s.add(Observation("ABC",datetime(2026,1,1,tzinfo=timezone.utc),"pe",20,"x","u"))
     rows=s.latest("ABC",datetime(2025,6,1,tzinfo=timezone.utc))
     assert rows[0].value==10
