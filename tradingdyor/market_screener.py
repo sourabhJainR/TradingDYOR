@@ -72,17 +72,22 @@ def _normalize_quote(raw: dict[str, Any]) -> dict[str, Any] | None:
     ticker = raw.get("symbol") or raw.get("ticker")
     if not isinstance(ticker, str) or not ticker.strip():
         return None
+    revenue_growth = _number(raw.get("revenueGrowth"))
+    if revenue_growth is None:
+        revenue_growth = _number(raw.get("quarterlyrevenuegrowth.quarterly"))
+        if revenue_growth is not None and abs(revenue_growth) > 5:
+            revenue_growth /= 100.0
     return {
         "ticker": ticker.strip().upper(),
         "name": raw.get("shortName") or raw.get("longName") or raw.get("displayName"),
         "exchange": raw.get("exchange") or raw.get("fullExchangeName"),
         "sector": raw.get("sector"),
-        "price": _number(raw.get("regularMarketPrice", raw.get("intradayprice"))),
+        "price": _number(raw.get("regularMarketPrice") or raw.get("intradayprice")),
         "currency": raw.get("currency"),
-        "market_cap": _number(raw.get("marketCap", raw.get("intradaymarketcap"))),
-        "pe": _number(raw.get("trailingPE", raw.get("peratio.lasttwelvemonths"))),
-        "revenue_growth": _number(raw.get("revenueGrowth", raw.get("quarterlyrevenuegrowth.quarterly"))),
-        "average_volume_3m": _number(raw.get("averageDailyVolume3Month", raw.get("avgdailyvol3m"))),
+        "market_cap": _number(raw.get("marketCap") or raw.get("intradaymarketcap")),
+        "pe": _number(raw.get("trailingPE") or raw.get("peratio.lasttwelvemonths")),
+        "revenue_growth": revenue_growth,
+        "average_volume_3m": _number(raw.get("averageDailyVolume3Month") or raw.get("avgdailyvol3m")),
         "as_of": _quote_as_of(raw.get("regularMarketTime")),
         "source": "Yahoo Finance via yfinance",
     }
@@ -137,7 +142,9 @@ def screen_market(
             sortField="intradaymarketcap",
             sortAsc=False,
         )
-        raw_quotes = response.get("quotes", []) if isinstance(response, dict) else []
+        if not isinstance(response, dict):
+            raise ValueError("Yahoo screener returned an invalid response")
+        raw_quotes = response.get("quotes")
         if not isinstance(raw_quotes, list):
             raise ValueError("Yahoo screener returned an invalid quotes collection")
         items = [
