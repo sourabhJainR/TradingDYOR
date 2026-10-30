@@ -70,11 +70,11 @@ def _number(value: Any) -> float | None:
 
 def _sentiment(articles: list[dict[str, Any]]) -> dict[str, Any]:
     observations = [
-        (article["tone"], article["publisher"])
+        (article["tone"], article.get("publisher_domains") or [article.get("publisher", "")])
         for article in articles
-        if article.get("tone") is not None and article.get("publisher")
+        if article.get("tone") is not None
     ]
-    publishers = {publisher for _, publisher in observations}
+    publishers = {publisher for _, domains in observations for publisher in domains if publisher}
     if len(observations) < MIN_SENTIMENT_ARTICLES or len(publishers) < MIN_SENTIMENT_PUBLISHERS:
         return {
             "status": "unscored",
@@ -195,7 +195,8 @@ def fetch_company_news(
         reverse=True,
     )[:bounded_limit]
     for article in articles:
-        article["publisher_count"] = len(article["publishers"])
+        article["publisher_domains"] = sorted(article["publishers"])
+        article["publisher_count"] = len(article["publisher_domains"])
         article.pop("publishers", None)
 
     return {
