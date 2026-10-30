@@ -85,3 +85,17 @@ def test_one_page_brief_abstains_when_graph_has_no_fundamental_snapshot(monkeypa
     assert data["recommendation"]["action"] == "HOLD"
     assert data["recommendation"]["research_status"] == "unavailable"
     assert data["company"]["price"] is None
+
+
+def test_news_api_selects_india_sources_for_indian_ticker(monkeypatch):
+    seen = {}
+    def fake_news(ticker, **kwargs):
+        seen["ticker"] = ticker
+        seen.update(kwargs)
+        return {"status": "empty", "providers": []}
+
+    monkeypatch.setattr("tradingdyor.api.fetch_company_news", fake_news)
+    response = TestClient(app).get("/research/news/RELIANCE.NS")
+    assert response.status_code == 200
+    assert seen["market"] == "INDIA"
+    assert seen["ticker"] == "RELIANCE.NS"
