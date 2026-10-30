@@ -61,7 +61,11 @@ class ResearchOrchestrator:
         completed_nodes = [n for n in source_nodes if n.status == "completed"]
         missing_nodes = [
             {"task_id": n.task.id, "status": n.status, "error": n.error}
-            for n in source_nodes if n.status != "completed"
+            for n in source_nodes if n.status in {"failed", "pending", "running"}
+        ]
+        skipped_nodes = [
+            {"task_id": n.task.id, "status": n.status}
+            for n in source_nodes if n.status == "skipped"
         ]
         return {
             "ticker": ticker,
@@ -70,6 +74,7 @@ class ResearchOrchestrator:
             "snapshot": snapshot,
             "source_tasks": [n.task.id for n in completed_nodes],
             "missing_tasks": missing_nodes,
+            "skipped_tasks": skipped_nodes,
             "status": "partial" if missing_nodes else "complete",
         }
 
@@ -137,6 +142,10 @@ class ResearchOrchestrator:
                     source_completed = len([n for n in graph.nodes.values() if n.task.id != "synthesis" and n.status == "completed"])
                     completeness = min(1.0, source_completed / source_total)
                     decision["evidence_coverage"] = min(float(decision.get("evidence_coverage", 0.0)), completeness)
+                    decision["confidence"] = min(float(decision.get("confidence", 0.0)), completeness)
+                    if completeness < 0.40:
+                        decision["action"] = "HOLD"
+                        decision["thesis"] = "HOLD thesis: selected research coverage is incomplete."
                     decision["research_status"] = synthesis_result.get("status", "unknown")
                     decision["missing_research_tasks"] = synthesis_result.get("missing_tasks", [])
                 if snapshot.price and decision_model.action in {"BUY","SELL","HOLD"}:
