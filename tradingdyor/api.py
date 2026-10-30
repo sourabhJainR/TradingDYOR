@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import datetime, timezone
 import os
+import hashlib
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from .models import SecuritySnapshot
