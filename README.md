@@ -61,4 +61,4 @@ API:
 - `GET /research/news/{ticker}?timespan=7d&limit=25` — news and cautious sentiment observations.
 - `GET /brief/{ticker}` — responsive one-page UI.
 
-The news adapter does not infer publication time from GDELT's seen time. Missing publication timestamps remain null. This first slice does not yet provide a full-market screener or independently verified news coverage; use explicit ticker universes and treat unavailable provider data as unknown. No trade execution is supported.
+The news adapter does not infer publication time from GDELT's seen time. Missing publication timestamps remain null. The one-page brief runs its company collectors through the research graph: successful providers remain visible when another provider fails, the synthesis is marked partial, and evidence coverage/confidence are capped by completed selected tasks. This first slice does not yet provide a full-market screener or independently verified news coverage; use explicit ticker universes and treat unavailable provider data as unknown. No trade execution is supported.
