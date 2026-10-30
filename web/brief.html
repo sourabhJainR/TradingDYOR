@@ -49,7 +49,7 @@ async function load(){
   list("reasons",r.key_reasons,x=>esc(x));
   $("sentiment").textContent=s.status==="scored"?Number(s.score).toFixed(2):"Unscored";
   $("sentimentMeta").textContent=(s.method||"No sentiment method")+". Sample "+(s.sample_count||0)+" articles across "+(s.publisher_count||0)+" publishers. Confidence "+Math.round(Number(s.confidence||0)*100)+"%. "+(s.reason||"");
-  list("newsRows",n.articles||[],x=>'<div class="row"><strong>'+esc(x.event_type)+'</strong><span class="small">'+time(x.seen_at)+'</span></div><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.title)+'</a><div class="small">'+esc(x.publisher)+' · tone '+(x.tone==null?"unavailable":Number(x.tone).toFixed(2))+'</div>');
+  list("newsRows",n.articles||[],x=>{const sourceTime=x.publish_time?"Published "+time(x.publish_time):x.seen_at?"Seen "+time(x.seen_at):"Source time unavailable";return '<div class="row"><strong>'+esc(x.event_type)+'</strong><span class="small">'+sourceTime+'</span></div><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.title)+'</a><div class="small">'+esc(x.publisher)+' · '+esc((x.source_providers||[]).join(", "))+' · tone '+(x.tone==null?"unavailable":Number(x.tone).toFixed(2))+'</div>'});
   const ev=d.events||{},fil=ev.filings||{},earn=ev.earnings||{},ins=ev.insiders||{},ca=ev.corporate_actions||{};
   list("events",[
    {name:"Recent regulatory filings",value:fil.count??0,status:fil.count?"available":"empty"},
