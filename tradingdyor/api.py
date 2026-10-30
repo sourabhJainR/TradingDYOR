@@ -104,7 +104,7 @@ def research_brief(ticker: str, timespan: str = "7d"):
     fundamentals = node_result("fundamentals")
     snapshot = fundamentals.get("snapshot") or {}
     company_name = snapshot.get("company_name")
-    decision = run.decision if isinstance(run.decision, dict) else {
+    decision = run.decision if isinstance(run.decision, dict) and run.decision.get("action") else {
         "ticker": symbol,
         "action": "HOLD",
         "score": 0.0,
