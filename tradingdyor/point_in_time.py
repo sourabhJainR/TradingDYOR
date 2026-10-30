@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import sqlite3
+import threading
 
 import pandas as pd
 
@@ -60,6 +61,9 @@ class PointInTimeStore:
 
     def __init__(self, db_path: str | Path = ":memory:"):
         self.db_path = str(db_path)
+        if self.db_path != ":memory:":
+            Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.RLock()
         self._connection = sqlite3.connect(self.db_path, check_same_thread=False)
         self._connection.execute("""
             CREATE TABLE IF NOT EXISTS observations (
@@ -92,6 +96,8 @@ class PointInTimeStore:
     def add(self, row: Observation) -> bool:
         if not row.ticker.strip() or not row.metric.strip() or not row.source.strip():
             raise ValueError("ticker, metric and source are required")
+        if not row.source_url.startswith(("https://", "http://")):
+            raise ValueError("source_url must be an HTTP(S) URL")
         if not 0.0 <= float(row.confidence) <= 1.0:
             raise ValueError("confidence must be between zero and one")
         available_at = _iso(row.availability_time())
@@ -109,8 +115,9 @@ class PointInTimeStore:
         observation_id = hashlib.sha256(
             f"{row.ticker.upper()}|{row.metric}|{row.source}|{digest}".encode("utf-8")
         ).hexdigest()
-        cursor = self._connection.execute(
-            """INSERT OR IGNORE INTO observations (
+        with self._lock:
+            cursor = self._connection.execute(
+                """INSERT OR IGNORE INTO observations (
                 observation_id,ticker,metric,value_json,source,source_url,confidence,
                 as_of,available_at,published_at,observed_at,retrieved_at,provider,
                 content_digest,extraction_version
@@ -120,20 +127,21 @@ class PointInTimeStore:
                 row.source_url, float(row.confidence), as_of, available_at,
                 _iso(row.published_at), _iso(row.observed_at), _iso(row.retrieved_at),
                 row.provider, digest, row.extraction_version,
-            ),
-        )
-        self._connection.commit()
-        return cursor.rowcount == 1
+                ),
+            )
+            self._connection.commit()
+            return cursor.rowcount == 1
 
     def latest(self, ticker: str, as_of: datetime | None = None) -> list[Observation]:
         cutoff = _utc(as_of or datetime.now(timezone.utc))
-        rows = self._connection.execute(
-            """SELECT ticker,metric,value_json,source,source_url,confidence,as_of,
-                      available_at,published_at,observed_at,retrieved_at,provider,
-                      content_digest,extraction_version
-               FROM observations WHERE ticker=?""",
-            (ticker.upper(),),
-        ).fetchall()
+        with self._lock:
+            rows = self._connection.execute(
+                """SELECT ticker,metric,value_json,source,source_url,confidence,as_of,
+                          available_at,published_at,observed_at,retrieved_at,provider,
+                          content_digest,extraction_version
+                   FROM observations WHERE ticker=?""",
+                (ticker.upper(),),
+            ).fetchall()
         eligible: list[tuple[datetime, Observation]] = []
         for row in rows:
             (
@@ -141,7 +149,12 @@ class PointInTimeStore:
                 available_raw, published_raw, observed_raw, retrieved_raw, provider,
                 content_digest, extraction_version,
             ) = row
-            available = _parse_time(available_raw) or _parse_time(published_raw) or _parse_time(observed_raw)
+            if available_raw is not None:
+                available = _parse_time(available_raw)
+            elif published_raw is not None:
+                available = _parse_time(published_raw)
+            else:
+                available = _parse_time(observed_raw)
             # Never use as_of or retrieved_at as a fallback availability time.
             if available is None or available > cutoff:
                 continue
@@ -181,6 +194,8 @@ class PointInTimeStore:
         """Measure forward return from the first eligible session after the signal."""
         if entry_lag_sessions < 0:
             raise ValueError("entry_lag_sessions cannot be negative")
+        if months < 1:
+            raise ValueError("months must be at least one")
         p = prices.dropna().sort_index()
         if p.empty:
             return None
