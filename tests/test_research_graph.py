@@ -1,6 +1,8 @@
 from tradingdyor.contradictions import detect_contradictions
 from tradingdyor.decision_fabric import DecisionFabric
-from tradingdyor.research_graph import ResearchGraph
+from tradingdyor.research_graph import ResearchGraph, ResearchTask
+from tradingdyor.models import SecuritySnapshot
+from types import SimpleNamespace
 from tradingdyor.orchestrator import ResearchOrchestrator
 
 
@@ -39,3 +41,57 @@ def test_orchestrator_parallel_loop_and_learning(tmp_path):
     assert result.graph["completed"] == 2
     assert len(calls) == 2
     assert memory.capability_stats()["fundamentals"]["observations"] == 1.0
+
+
+def test_orchestrator_synthesizes_partial_results_after_provider_failure():
+    class Memory:
+        def record(self, _experience):
+            return None
+
+    class NoRetryFabric:
+        memory = Memory()
+
+        def plan(self, capabilities, required_evidence=0.7):
+            return SimpleNamespace(
+                capabilities=tuple(capabilities),
+                retry_budget=0,
+                verification_depth=0.5,
+            )
+
+    tasks = (
+        ResearchTask("fundamentals", "fundamentals", "Collect company fundamentals"),
+        ResearchTask("filings", "filings", "Collect regulatory filings"),
+        ResearchTask(
+            "synthesis", "synthesis", "Synthesize partial evidence",
+            depends_on=("fundamentals", "filings"),
+        ),
+    )
+    graph = ResearchGraph(tasks=tasks)
+    snapshot = SecuritySnapshot(
+        ticker="ABC", price=10.0, revenue_growth=0.5, earnings_growth=0.4,
+        roe=0.2, pe=20.0, debt_to_equity=0.2, momentum_12m=0.3,
+        volatility_90d=0.2, evidence_coverage=1.0,
+    )
+
+    def fundamentals(_ticker):
+        return {
+            "evidence_count": 2,
+            "snapshot": snapshot.model_dump(mode="json"),
+            "claims": [{"claim": "revenue growth", "value": "0.5", "source": "SEC"}],
+        }
+
+    def failed_filings(_ticker):
+        raise TimeoutError("synthetic provider timeout")
+
+    result = ResearchOrchestrator(NoRetryFabric(), max_workers=2).run(
+        "ABC", {"fundamentals": fundamentals, "filings": failed_filings}, graph,
+    )
+
+    synthesis = result.graph["nodes"]["synthesis"]
+    assert synthesis["status"] == "completed"
+    assert synthesis["result"]["status"] == "partial"
+    assert synthesis["result"]["missing_tasks"][0]["task_id"] == "filings"
+    assert result.decision["research_status"] == "partial"
+    assert result.decision["missing_research_tasks"][0]["task_id"] == "filings"
+    assert result.decision["evidence_coverage"] <= 0.5
+    assert result.decision["confidence"] <= 0.5
