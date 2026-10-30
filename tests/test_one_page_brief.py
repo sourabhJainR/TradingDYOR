@@ -1,27 +1,34 @@
 from fastapi.testclient import TestClient
 
 from tradingdyor.api import app
+from types import SimpleNamespace
 
 
 def test_one_page_brief_combines_company_recommendation_news_and_provenance(monkeypatch):
-    monkeypatch.setattr("tradingdyor.api.research_ticker", lambda ticker: {
-        "snapshot": {
-            "ticker": ticker, "company_name": "Example Corp", "sector": "Technology",
-            "price": 123.45, "market_cap": 1000000, "as_of": "2026-10-30T12:00:00+00:00",
-        },
-        "decision": {
-            "ticker": ticker, "action": "HOLD", "score": 0.1, "confidence": 0.4,
-            "evidence_coverage": 0.35, "strategy_agreement": 0.5,
-            "thesis": "Insufficient evidence for a BUY.",
-            "key_reasons": ["Coverage below threshold"], "risks": ["Stale news"],
-            "invalidation": ["Reassess after next filing"],
-        },
-        "market_intelligence": {
-            "filing_activity": {"count": 1, "recent": []},
-            "earnings": {"observations": []}, "insiders": {"observations": []},
-            "corporate_actions": {"count": 0}, "evidence_coverage": 0.25,
-        },
-    })
+    graph = {"nodes": {
+        "fundamentals": {"status": "completed", "evidence_count": 3, "result": {
+            "snapshot": {
+                "ticker": "EXAMPLE", "company_name": "Example Corp", "sector": "Technology",
+                "price": 123.45, "market_cap": 1000000, "as_of": "2026-10-30T12:00:00+00:00",
+            },
+        }},
+        "filings": {"status": "failed", "evidence_count": 0, "result": None},
+        "insiders": {"status": "completed", "evidence_count": 0, "result": {"buys": 0, "sells": 0}},
+        "earnings": {"status": "completed", "evidence_count": 0, "result": {"signal": {}}},
+        "corporate_actions": {"status": "completed", "evidence_count": 0, "result": {"actions": []}},
+    }}
+    decision = {
+        "ticker": "EXAMPLE", "action": "HOLD", "score": 0.1, "confidence": 0.4,
+        "evidence_coverage": 0.35, "strategy_agreement": 0.5,
+        "thesis": "Insufficient evidence for a BUY.",
+        "key_reasons": ["Coverage below threshold"], "risks": ["Stale news"],
+        "invalidation": ["Reassess after next filing"], "research_status": "partial",
+        "missing_research_tasks": [{"task_id": "filings", "status": "failed"}],
+    }
+    run = SimpleNamespace(graph=graph, decision=decision, evidence_yield=0.5,
+                          duration_ms=120.0, contradictions=[])
+    monkeypatch.setattr("tradingdyor.api.ResearchOrchestrator",
+                        lambda _fabric: SimpleNamespace(run=lambda _ticker, _collectors: run))
     monkeypatch.setattr("tradingdyor.api.fetch_company_news", lambda *args, **kwargs: {
         "status": "available", "retrieved_at": "2026-10-30T12:05:00+00:00",
         "articles": [{"title": "Example Corp update", "url": "https://news.example/story"}],
@@ -35,6 +42,8 @@ def test_one_page_brief_combines_company_recommendation_news_and_provenance(monk
     assert data["recommendation"]["action"] == "HOLD"
     assert data["news"]["sentiment"]["status"] == "unscored"
     assert data["evidence"]["sources"][-1]["name"] == "GDELT news"
+    assert data["research"]["status"] == "partial"
+    assert next(x for x in data["evidence"]["sources"] if x["name"] == "Regulatory filings")["status"] == "failed"
     assert data["advisory_only"] is True
 
 
@@ -49,7 +58,7 @@ def test_one_page_brief_rejects_invalid_ticker_before_provider_calls(monkeypatch
     def unexpected(_ticker):
         raise AssertionError("provider must not be called for invalid ticker")
 
-    monkeypatch.setattr("tradingdyor.api.research_ticker", unexpected)
+    monkeypatch.setattr("tradingdyor.api.ResearchOrchestrator", unexpected)
     response = TestClient(app).get("/research/brief/ACME%21")
     assert response.status_code == 400
     assert response.json()["detail"] == "invalid ticker symbol"
