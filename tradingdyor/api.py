@@ -26,6 +26,7 @@ from .decision_fabric import DecisionFabric
 from .monthly_optimizer import build_monthly_recommendations
 from .news_sentiment import fetch_company_news
 from .point_in_time import Observation, PointInTimeStore
+from .market_screener import screen_market
 
 from .research_graph import ResearchGraph
 from .orchestrator import ResearchOrchestrator
@@ -200,6 +201,35 @@ def _persist_brief_observations(ticker, snapshot, events, news):
             "eligible_observations_added": eligible_added,
             "error_type": type(exc).__name__,
         }
+
+
+@app.get("/research/screener/market")
+def research_market_screener(
+    market: str = "US",
+    sector: str | None = None,
+    max_pe: float | None = None,
+    min_revenue_growth: float | None = None,
+    min_market_cap: float | None = None,
+    min_average_volume: float | None = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    try:
+        result = screen_market(
+            market=market,
+            sector=sector,
+            max_pe=max_pe,
+            min_revenue_growth=min_revenue_growth,
+            min_market_cap=min_market_cap,
+            min_average_volume=min_average_volume,
+            limit=limit,
+            offset=offset,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    if result["status"] == "unavailable":
+        raise HTTPException(503, f"market screener unavailable: {result['error_type']}")
+    return result
 
 
 @app.get("/research/brief/{ticker}")
