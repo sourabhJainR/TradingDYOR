@@ -21,6 +21,7 @@ from .sector_adapter import sector_state
 from .patents import search_patents
 from .decision_fabric import DecisionFabric
 from .monthly_optimizer import build_monthly_recommendations
+from .news_sentiment import fetch_company_news
 
 from .research_graph import ResearchGraph
 from .orchestrator import ResearchOrchestrator
@@ -76,6 +77,59 @@ def research_evidence(ticker: str):
 @app.get("/research/market-intelligence/{ticker}")
 def research_market_intelligence(ticker: str):
     return market_intelligence(ticker.upper())
+
+
+@app.get("/research/brief/{ticker}")
+def research_brief(ticker: str, timespan: str = "7d"):
+    """Compose the one-page company brief from existing research and current news."""
+    symbol = ticker.strip().upper()
+    try:
+        result = research_ticker(symbol)
+    except Exception as exc:
+        raise HTTPException(502, f"company research unavailable: {type(exc).__name__}")
+    snapshot = result.get("snapshot", {})
+    company_name = snapshot.get("company_name")
+    news = fetch_company_news(symbol, company_name, timespan=timespan)
+    decision = result.get("decision", {})
+    intelligence = result.get("market_intelligence", {})
+    return {
+        "ticker": symbol,
+        "company": {
+            "name": company_name,
+            "sector": snapshot.get("sector"),
+            "market_cap": snapshot.get("market_cap"),
+            "price": snapshot.get("price"),
+            "currency": "USD" if not symbol.endswith((".NS", ".BO")) else "INR",
+            "as_of": snapshot.get("as_of"),
+        },
+        "recommendation": decision,
+        "fundamentals": snapshot,
+        "events": {
+            "filings": intelligence.get("filing_activity", {}),
+            "earnings": intelligence.get("earnings", {}),
+            "insiders": intelligence.get("insiders", {}),
+            "corporate_actions": intelligence.get("corporate_actions", {}),
+        },
+        "news": news,
+        "evidence": {
+            "coverage": decision.get("evidence_coverage", 0.0),
+            "market_intelligence_coverage": intelligence.get("evidence_coverage", 0.0),
+            "sources": [
+                {"name": "Market data", "status": "available", "as_of": snapshot.get("as_of")},
+                {"name": "Company events and filings", "status": "available" if intelligence.get("filing_activity", {}).get("count", 0) else "empty"},
+                {"name": "GDELT news", "status": news.get("status"), "retrieved_at": news.get("retrieved_at")},
+            ],
+        },
+        "advisory_only": True,
+    }
+
+
+@app.get("/research/news/{ticker}")
+def research_news(ticker: str, timespan: str = "7d", limit: int = 25):
+    try:
+        return fetch_company_news(ticker, timespan=timespan, limit=limit)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
 
 @app.get("/research/macro")
 def research_macro(series_id: str | None = None):
