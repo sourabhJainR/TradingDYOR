@@ -95,3 +95,43 @@ def test_orchestrator_synthesizes_partial_results_after_provider_failure():
     assert result.decision["missing_research_tasks"][0]["task_id"] == "filings"
     assert result.decision["evidence_coverage"] <= 0.5
     assert result.decision["confidence"] <= 0.5
+
+
+def test_missing_collector_is_unavailable_not_successful_evidence():
+    class Memory:
+        def record(self, _experience):
+            return None
+
+    class NoRetryFabric:
+        memory = Memory()
+
+        def plan(self, capabilities, required_evidence=0.7):
+            return SimpleNamespace(
+                capabilities=tuple(capabilities),
+                retry_budget=0,
+                verification_depth=0.5,
+            )
+
+    tasks = (
+        ResearchTask("fundamentals", "fundamentals", "Collect company fundamentals"),
+        ResearchTask("institutional", "institutional", "Collect institutional activity"),
+        ResearchTask(
+            "synthesis", "synthesis", "Synthesize partial evidence",
+            depends_on=("fundamentals", "institutional"),
+        ),
+    )
+    graph = ResearchGraph(tasks=tasks)
+    snapshot = SecuritySnapshot(ticker="ABC", price=None, evidence_coverage=0.5)
+
+    def fundamentals(_ticker):
+        return {"evidence_count": 1, "snapshot": snapshot.model_dump(mode="json"),
+                "claims": [{"claim": "company", "value": "ABC", "source": "Market data"}]}
+
+    result = ResearchOrchestrator(NoRetryFabric(), max_workers=1).run(
+        "ABC", {"fundamentals": fundamentals}, graph,
+    )
+
+    assert result.graph["nodes"]["institutional"]["status"] == "unavailable"
+    assert result.graph["nodes"]["synthesis"]["status"] == "completed"
+    assert result.graph["nodes"]["synthesis"]["result"]["status"] == "partial"
+    assert result.graph["nodes"]["synthesis"]["result"]["missing_tasks"][0]["status"] == "unavailable"
