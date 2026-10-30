@@ -109,16 +109,24 @@ def _persist_brief_observations(ticker, snapshot, events, news):
     snapshot_as_of = _source_datetime(snapshot.get("as_of"))
     news_retrieved_at = _source_datetime(news.get("retrieved_at"))
     added = 0
+    eligible_added = 0
     try:
         store = PointInTimeStore(_point_in_time_path())
         try:
+            def record(observation):
+                nonlocal added, eligible_added
+                inserted = store.add(observation)
+                if inserted:
+                    added += 1
+                    eligible_added += int(observation.availability_time() is not None)
+
             market_url = f"https://finance.yahoo.com/quote/{ticker}"
             for metric in ("price", "market_cap", "pe", "revenue_growth", "roe",
                            "debt_to_equity", "momentum_12m", "volatility_90d"):
                 value = snapshot.get(metric)
                 if isinstance(value, bool) or not isinstance(value, (int, float)):
                     continue
-                added += int(store.add(Observation(
+                record(Observation(
                     ticker=ticker, as_of=now, metric=metric, value=float(value),
                     source="market-data", source_url=market_url,
                     available_at=snapshot_as_of, retrieved_at=now,
@@ -139,7 +147,7 @@ def _persist_brief_observations(ticker, snapshot, events, news):
                     value=document, source="SEC", source_url=url,
                     available_at=filed, retrieved_at=now, provider="SEC",
                     extraction_version="brief-v1",
-                )))
+                ))
             articles = news.get("articles", [])
             for article in articles if isinstance(articles, list) else []:
                 if not isinstance(article, dict):
@@ -159,12 +167,13 @@ def _persist_brief_observations(ticker, snapshot, events, news):
                     published_at=published_at, observed_at=observed_at,
                     retrieved_at=news_retrieved_at or now, provider=source,
                     content_digest=identity, extraction_version="brief-v1",
-                )))
+                ))
         finally:
             store.close()
-        return {"status": "stored", "observations_added": added, "error_type": None}
+        status = "stored" if added and eligible_added == added else "partial" if added else "empty"
+        return {"status": status, "observations_added": added, "eligible_observations_added": eligible_added, "error_type": None}
     except Exception as exc:
-        return {"status": "unavailable", "observations_added": added, "error_type": type(exc).__name__}
+        return {"status": "partial" if added else "unavailable", "observations_added": added, "eligible_observations_added": eligible_added, "error_type": type(exc).__name__}
 
 
 @app.get("/research/brief/{ticker}")
