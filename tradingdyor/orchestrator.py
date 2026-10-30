@@ -57,9 +57,21 @@ class ResearchOrchestrator:
                 claims.extend(node.result.get("claims", []))
                 if node.task.id == "fundamentals" and node.result.get("snapshot"):
                     snapshot = node.result["snapshot"]
-        return {"ticker": ticker, "evidence_count": evidence_count, "claims": claims,
-                "snapshot": snapshot,
-                "source_tasks": [n.task.id for n in graph.nodes.values() if n.status == "completed"]}
+        source_nodes = [n for n in graph.nodes.values() if n.task.id != "synthesis"]
+        completed_nodes = [n for n in source_nodes if n.status == "completed"]
+        missing_nodes = [
+            {"task_id": n.task.id, "status": n.status, "error": n.error}
+            for n in source_nodes if n.status != "completed"
+        ]
+        return {
+            "ticker": ticker,
+            "evidence_count": evidence_count,
+            "claims": claims,
+            "snapshot": snapshot,
+            "source_tasks": [n.task.id for n in completed_nodes],
+            "missing_tasks": missing_nodes,
+            "status": "partial" if missing_nodes else "complete",
+        }
 
     def run(self, ticker: str, collectors: dict[str, Collector], graph: ResearchGraph | None = None) -> ResearchRun:
         graph = graph or ResearchGraph()
@@ -119,6 +131,14 @@ class ResearchOrchestrator:
                 snapshot=SecuritySnapshot.model_validate(snapshot_data)
                 decision_model=decide(snapshot,evidence_coverage=provenance["evidence"]["coverage"],provenance=provenance)
                 decision=decision_model.model_dump(mode="json")
+                synthesis_result = graph.nodes.get("synthesis").result if graph.nodes.get("synthesis") else None
+                if isinstance(synthesis_result, dict):
+                    source_total = max(1, len([n for n in graph.nodes.values() if n.task.id != "synthesis" and n.status != "skipped"]))
+                    source_completed = len([n for n in graph.nodes.values() if n.task.id != "synthesis" and n.status == "completed"])
+                    completeness = min(1.0, source_completed / source_total)
+                    decision["evidence_coverage"] = min(float(decision.get("evidence_coverage", 0.0)), completeness)
+                    decision["research_status"] = synthesis_result.get("status", "unknown")
+                    decision["missing_research_tasks"] = synthesis_result.get("missing_tasks", [])
                 if snapshot.price and decision_model.action in {"BUY","SELL","HOLD"}:
                     capabilities=tuple(sorted({n.task.capability for n in graph.nodes.values() if n.status=="completed" and n.task.id!="synthesis"}))
                     sources=tuple(sorted({str(c.get("source","Unknown")) for c in claims if c.get("source")}))
