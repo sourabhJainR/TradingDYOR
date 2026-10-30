@@ -132,6 +132,7 @@ def test_missing_collector_is_unavailable_not_successful_evidence():
     )
 
     assert result.graph["nodes"]["institutional"]["status"] == "unavailable"
+    assert result.graph["unavailable"] == 1
     assert result.graph["nodes"]["synthesis"]["status"] == "completed"
     assert result.graph["nodes"]["synthesis"]["result"]["status"] == "partial"
     assert result.graph["nodes"]["synthesis"]["result"]["missing_tasks"][0]["status"] == "unavailable"
