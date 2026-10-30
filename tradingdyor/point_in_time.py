@@ -91,7 +91,8 @@ class PointInTimeStore:
         self._connection.commit()
 
     def close(self) -> None:
-        self._connection.close()
+        with self._lock:
+            self._connection.close()
 
     def add(self, row: Observation) -> bool:
         if not row.ticker.strip() or not row.metric.strip() or not row.source.strip():
@@ -100,7 +101,7 @@ class PointInTimeStore:
             raise ValueError("source_url must be an HTTP(S) URL")
         if not 0.0 <= float(row.confidence) <= 1.0:
             raise ValueError("confidence must be between zero and one")
-        available_at = _iso(row.availability_time())
+        available_at = _iso(row.available_at)
         as_of = _iso(row.as_of)
         if as_of is None:
             raise ValueError("as_of is required")
