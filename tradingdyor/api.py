@@ -118,7 +118,8 @@ def research_brief(ticker: str, timespan: str = "7d"):
         "research_status": "unavailable",
         "missing_research_tasks": ["fundamentals"],
     }
-    news = fetch_company_news(symbol, company_name, timespan=timespan)
+    market = "INDIA" if symbol.endswith((".NS", ".BO")) else "US"
+    news = fetch_company_news(symbol, company_name, timespan=timespan, market=market)
     source_names = {
         "fundamentals": "Company fundamentals",
         "filings": "Regulatory filings",
@@ -138,11 +139,12 @@ def research_brief(ticker: str, timespan: str = "7d"):
             "status": node.get("status", "not_selected") if isinstance(node, dict) else "unknown",
             "evidence_count": node.get("evidence_count", 0) if isinstance(node, dict) else 0,
         })
-    sources.append({
-        "name": "GDELT news",
-        "status": news.get("status"),
-        "retrieved_at": news.get("retrieved_at"),
-    })
+    for provider in news.get("providers", []):
+        sources.append({
+            "name": provider.get("name", "News provider"),
+            "status": provider.get("status", "unknown"),
+            "retrieved_at": news.get("retrieved_at"),
+        })
     return {
         "ticker": symbol,
         "company": {
@@ -180,9 +182,11 @@ def research_brief(ticker: str, timespan: str = "7d"):
 
 
 @app.get("/research/news/{ticker}")
-def research_news(ticker: str, timespan: str = "7d", limit: int = 25):
+def research_news(ticker: str, timespan: str = "7d", limit: int = 25, market: str | None = None):
+    symbol = ticker.strip().upper()
+    selected_market = market or ("INDIA" if symbol.endswith((".NS", ".BO")) else "US")
     try:
-        return fetch_company_news(ticker, timespan=timespan, limit=limit)
+        return fetch_company_news(symbol, timespan=timespan, limit=limit, market=selected_market)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
 

@@ -64,3 +64,5 @@ SOURCES.extend([
 ])
 
 SOURCES.append(Source("GDELT DOC API","https://api.gdeltproject.org/api/v2/doc/doc","news"))
+
+SOURCES.append(Source("Google News RSS","https://news.google.com/rss/search","news"))

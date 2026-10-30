@@ -38,7 +38,7 @@ def test_news_preserves_source_times_and_deduplicates_syndicated_titles():
              "domain": "c.example", "seendate": "20261030T130000Z", "tone": -4.0},
         ]
     })
-    result = fetch_company_news("ACME", "Acme Corp", session=session)
+    result = fetch_company_news("ACME", "Acme Corp", session=session, include_google_news=False)
 
     assert result["status"] == "available"
     assert result["article_count"] == 2
@@ -64,7 +64,7 @@ def test_sentiment_requires_independent_sample_and_publisher_coverage():
          "tone": float(i - 3)}
         for i in range(6)
     ]})
-    result = fetch_company_news("ACME", session=session)
+    result = fetch_company_news("ACME", session=session, include_google_news=False)
     assert result["sentiment"]["status"] == "scored"
     assert result["sentiment"]["sample_count"] == 6
     assert result["sentiment"]["publisher_count"] == 3
@@ -73,19 +73,139 @@ def test_sentiment_requires_independent_sample_and_publisher_coverage():
 
 
 def test_news_provider_failure_is_explicit_partial_result():
-    result = fetch_company_news("ACME", session=_Session(error=TimeoutError("private detail")))
+    result = fetch_company_news("ACME", session=_Session(error=TimeoutError("private detail")), include_google_news=False)
 
     assert result["status"] == "unavailable"
     assert result["articles"] == []
     assert result["sentiment"]["status"] == "unscored"
-    assert "TimeoutError" in result["error"]
-    assert "private detail" not in result["error"]
+    assert result["providers"][0]["error_type"] == "TimeoutError"
+    assert "private detail" not in str(result)
 
 
 def test_news_rejects_bad_ticker_and_timespan():
     import pytest
 
     with pytest.raises(ValueError):
-        fetch_company_news("ACME/SECRET")
+        fetch_company_news("ACME/SECRET", include_google_news=False)
     with pytest.raises(ValueError):
-        fetch_company_news("ACME", timespan="90d")
+        fetch_company_news("ACME", timespan="90d", include_google_news=False)
+
+
+class _RssResponse:
+    def __init__(self, xml):
+        self.content = xml.encode("utf-8")
+
+    def raise_for_status(self):
+        return None
+
+
+class _RssSession:
+    def __init__(self, xml=None, error=None):
+        self.xml = xml or "<rss><channel /></rss>"
+        self.error = error
+        self.calls = []
+
+    def get(self, url, *, params, timeout):
+        self.calls.append((url, params, timeout))
+        if self.error:
+            raise self.error
+        return _RssResponse(self.xml)
+
+
+def test_google_news_rss_preserves_publication_time_and_india_market():
+    rss = _RssSession("""<rss><channel><item>
+      <title>Reliance announces quarterly earnings</title>
+      <link>https://news.google.com/rss/articles/example</link>
+      <pubDate>Fri, 30 Oct 2026 12:00:00 GMT</pubDate>
+      <source url="https://www.publisher.example/">Publisher One</source>
+    </item></channel></rss>""")
+    result = fetch_company_news(
+        "RELIANCE.NS", market="INDIA", include_gdelt=False, rss_session=rss,
+    )
+
+    assert result["status"] == "available"
+    article = result["articles"][0]
+    assert article["publish_time"] == "2026-10-30T12:00:00+00:00"
+    assert article["seen_at"] is None
+    assert article["publisher_domains"] == ["publisher.example"]
+    assert result["sentiment"]["status"] == "unscored"
+    assert rss.calls[0][1]["gl"] == "IN"
+    assert rss.calls[0][1]["ceid"] == "IN:en"
+    assert rss.calls[0][1]["hl"] == "en-IN"
+    assert "RELIANCE.NS" in rss.calls[0][1]["q"]
+    assert rss.calls[0][2] <= 8.0
+
+
+def test_gdelt_failure_keeps_google_news_partial_result():
+    rss = _RssSession("""<rss><channel><item>
+      <title>Acme wins major contract</title>
+      <link>https://news.google.com/rss/articles/contract</link>
+      <pubDate>Fri, 30 Oct 2026 12:00:00 GMT</pubDate>
+      <source url="https://publisher.example/">Publisher</source>
+    </item></channel></rss>""")
+    result = fetch_company_news(
+        "ACME", session=_Session(error=TimeoutError("private detail")),
+        rss_session=rss,
+    )
+
+    assert result["status"] == "partial"
+    assert result["article_count"] == 1
+    assert result["sentiment"]["status"] == "unscored"
+    assert {x["name"]: x["status"] for x in result["providers"]} == {
+        "GDELT": "unavailable", "Google News RSS": "available",
+    }
+
+
+def test_cross_source_story_dedup_preserves_both_publishers_and_providers():
+    gdelt = _Session({"articles": [{
+        "title": "Acme announces quarterly earnings",
+        "url": "https://a.example/story",
+        "domain": "a.example",
+        "seendate": "20261030T120000Z",
+        "tone": 2.5,
+    }]})
+    rss = _RssSession("""<rss><channel><item>
+      <title>Acme announces quarterly earnings</title>
+      <link>https://news.google.com/rss/articles/earnings</link>
+      <pubDate>Fri, 30 Oct 2026 12:00:00 GMT</pubDate>
+      <source url="https://b.example/">Publisher B</source>
+    </item></channel></rss>""")
+    result = fetch_company_news("ACME", session=gdelt, rss_session=rss)
+
+    assert result["article_count"] == 1
+    article = result["articles"][0]
+    assert article["duplicate_count"] == 2
+    assert article["publisher_count"] == 2
+    assert article["source_providers"] == ["GDELT", "Google News RSS"]
+    assert article["tone"] == 2.5
+    assert article["publish_time"] == "2026-10-30T12:00:00+00:00"
+    assert result["sentiment"]["sample_count"] == 1
+    assert result["sentiment"]["status"] == "unscored"
+
+
+def test_both_news_sources_unavailable_is_not_a_success():
+    result = fetch_company_news(
+        "ACME",
+        session=_Session(error=TimeoutError("private")),
+        rss_session=_RssSession(error=TimeoutError("private")),
+    )
+    assert result["status"] == "unavailable"
+    assert result["articles"] == []
+    assert all(x["status"] == "unavailable" for x in result["providers"])
+
+
+def test_oversized_google_news_response_fails_closed():
+    class LargeResponse:
+        content = b"x" * 1_000_001
+
+        def raise_for_status(self):
+            return None
+
+    class LargeSession:
+        def get(self, *_args, **_kwargs):
+            return LargeResponse()
+
+    result = fetch_company_news("ACME", include_gdelt=False, rss_session=LargeSession())
+    assert result["status"] == "unavailable"
+    assert result["providers"][0]["error_type"] == "ValueError"
+    assert result["articles"] == []

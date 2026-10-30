@@ -37,3 +37,12 @@ The UI exposes model outputs as Buy/Hold/Sell buckets with evidence coverage, mo
 The one-page brief uses the ResearchGraph and ResearchOrchestrator rather than a monolithic collector. Provider tasks execute independently. A provider failure is terminal evidence for that task, not a reason to discard successful sibling results. Synthesis runs after selected dependencies reach a terminal state (completed, failed or skipped), records missing and skipped tasks separately, and marks the result partial when a selected task failed or did not complete. Evidence coverage and confidence are capped by the fraction of selected source tasks that completed. If the fundamental snapshot is unavailable, the API returns an explicit HOLD/unavailable result rather than fabricating a company thesis.
 
 Intentional capability skips do not count as provider failures. Missing publication time is not inferred from retrieval time. These contracts are covered by deterministic tests; live provider coverage still needs operational monitoring.
+
+
+## Multi-source news
+
+The brief queries GDELT DOC and Google News RSS with a bounded timeout and at most two concurrent provider calls. A single provider failure returns partial results from the other source; failures are reported by provider without exposing exception messages. Stories are grouped across sources by normalized title while retaining publisher domains, source URLs and provider identities.
+
+GDELT seen time and Google News RSS publication time remain separate fields. Retrieval time is recorded at the aggregate response level and is not used as a substitute for publication/availability time. Only GDELT's article tone contributes to the sentiment aggregate; Google News headlines are not assigned synthetic sentiment. Sentiment remains unscored below the five-story / three-publisher threshold.
+
+This is not a full independent fact-check: publisher and article links are preserved for review, and conflicting coverage still requires explicit claim reconciliation. Google News RSS availability and regional relevance require live operational monitoring.
