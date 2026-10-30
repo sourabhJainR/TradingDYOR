@@ -219,12 +219,12 @@ def _fetch_gdelt(
 def _fetch_google_news(
     query: str, market: str, limit: int, timeout: float, session: Any,
 ) -> dict[str, Any]:
-    locale = {"US": ("US", "US:en"), "INDIA": ("IN", "IN:en")}[market]
+    locale = {"US": ("US", "US:en", "en-US"), "INDIA": ("IN", "IN:en", "en-IN")}[market]
     try:
         response = session.get(
             GOOGLE_NEWS_RSS,
             params={
-                "q": query, "hl": "en-US", "gl": locale[0], "ceid": locale[1],
+                "q": query, "hl": locale[2], "gl": locale[0], "ceid": locale[1],
             },
             timeout=timeout,
         )
@@ -295,7 +295,7 @@ def fetch_company_news(
             )
         if include_google_news:
             futures["Google News RSS"] = pool.submit(
-                _fetch_google_news, company or symbol, market, bounded_limit, bounded_timeout, rss_session,
+                _fetch_google_news, query, market, bounded_limit, bounded_timeout, rss_session,
             )
         provider_results = {name: future.result() for name, future in futures.items()}
 
