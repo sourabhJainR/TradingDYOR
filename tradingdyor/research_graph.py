@@ -90,4 +90,5 @@ class ResearchGraph:
             },
             "completed": sum(n.status == "completed" for n in self.nodes.values()),
             "failed": sum(n.status == "failed" for n in self.nodes.values()),
+            "unavailable": sum(n.status == "unavailable" for n in self.nodes.values()),
         }
