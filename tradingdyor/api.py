@@ -44,6 +44,9 @@ def sources(): return [s.__dict__ for s in SOURCES]
 @app.get("/")
 def spa(): return FileResponse(WEB_ROOT / "index.html")
 
+@app.get("/brief/{ticker}")
+def one_page_brief_app(ticker: str): return FileResponse(WEB_ROOT / "brief.html")
+
 @app.post("/research/score")
 def score(snapshot: SecuritySnapshot):
     if not 0 <= snapshot.evidence_coverage <= 1: raise HTTPException(400,"evidence_coverage must be between 0 and 1")
