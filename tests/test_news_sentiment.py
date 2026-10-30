@@ -78,8 +78,8 @@ def test_news_provider_failure_is_explicit_partial_result():
     assert result["status"] == "unavailable"
     assert result["articles"] == []
     assert result["sentiment"]["status"] == "unscored"
-    assert "TimeoutError" in result["error"]
-    assert "private detail" not in result["error"]
+    assert result["providers"][0]["error_type"] == "TimeoutError"
+    assert "private detail" not in str(result)
 
 
 def test_news_rejects_bad_ticker_and_timespan():
