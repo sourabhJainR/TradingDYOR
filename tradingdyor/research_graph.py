@@ -46,7 +46,7 @@ class ResearchGraph:
     def ready(self) -> list[ResearchNode]:
         return [
             n for n in self.nodes.values()
-            if n.status == "pending" and all(self.nodes[d].status == "completed" for d in n.task.depends_on)
+            if n.status == "pending" and all(self.nodes[d].status in {"completed", "failed", "skipped"} for d in n.task.depends_on)
         ]
 
     def start(self, task_id: str) -> None:
