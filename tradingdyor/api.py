@@ -118,7 +118,8 @@ def _persist_brief_observations(ticker, snapshot, events, news):
                 inserted = store.add(observation)
                 if inserted:
                     added += 1
-                    eligible_added += int(observation.availability_time() is not None)
+                    anchor = _source_datetime(observation.availability_time())
+                    eligible_added += int(anchor is not None and anchor <= now)
 
             market_url = f"https://finance.yahoo.com/quote/{ticker}"
             for metric in (
