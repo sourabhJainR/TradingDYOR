@@ -44,7 +44,8 @@ def test_one_page_brief_combines_company_recommendation_news_and_provenance(monk
     assert data["recommendation"]["action"] == "HOLD"
     assert data["news"]["sentiment"]["status"] == "unscored"
     assert data["evidence"]["sources"][-1]["name"] == "Google News RSS"
-    assert data["point_in_time"]["status"] == "stored"
+    assert data["point_in_time"]["status"] == "partial"
+    assert data["point_in_time"]["eligible_observations_added"] == 2
     assert data["point_in_time"]["observations_added"] == 3
     history = TestClient(app).get("/research/history/EXAMPLE", params={"as_of": "2026-10-31T00:00:00+00:00"})
     assert history.status_code == 200
