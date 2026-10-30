@@ -131,6 +131,8 @@ def test_google_news_rss_preserves_publication_time_and_india_market():
     assert result["sentiment"]["status"] == "unscored"
     assert rss.calls[0][1]["gl"] == "IN"
     assert rss.calls[0][1]["ceid"] == "IN:en"
+    assert rss.calls[0][1]["hl"] == "en-IN"
+    assert "RELIANCE.NS" in rss.calls[0][1]["q"]
     assert rss.calls[0][2] <= 8.0
 
 
