@@ -61,7 +61,7 @@ class ResearchOrchestrator:
         completed_nodes = [n for n in source_nodes if n.status == "completed"]
         missing_nodes = [
             {"task_id": n.task.id, "status": n.status, "error": n.error}
-            for n in source_nodes if n.status in {"failed", "pending", "running"}
+            for n in source_nodes if n.status in {"failed", "unavailable", "pending", "running"}
         ]
         skipped_nodes = [
             {"task_id": n.task.id, "status": n.status}
@@ -93,7 +93,7 @@ class ResearchOrchestrator:
             ready=[n for n in ready if n.task.capability in collectors]
             for node in graph.ready():
                 if node.task.capability not in collectors:
-                    graph.complete(node.task.id,{"status":"unavailable","reason":"collector_not_configured"},0)
+                    graph.unavailable(node.task.id, "collector_not_configured")
             if not ready: continue
             with ThreadPoolExecutor(max_workers=min(self.max_workers,len(ready))) as pool:
                 futures={}
