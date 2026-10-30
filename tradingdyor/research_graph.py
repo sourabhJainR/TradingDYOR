@@ -31,6 +31,7 @@ DEFAULT_TASKS = (
     ResearchTask("filings", "filings", "Review recent regulatory filings and event signals", expected_evidence_yield=0.9, cost=1.2),
     ResearchTask("insiders", "insiders", "Review recent insider transactions", expected_evidence_yield=0.6, cost=1.0),
     ResearchTask("earnings", "earnings", "Review earnings history and surprises", expected_evidence_yield=0.7, cost=1.0),
+    ResearchTask("corporate_actions", "corporate_actions", "Review dividends, splits and other corporate actions", expected_evidence_yield=0.5, cost=0.7),
     ResearchTask("institutional", "institutional", "Review institutional ownership/flow evidence", expected_evidence_yield=0.5, cost=1.5),
     ResearchTask("sector", "sector", "Assess sector relative strength and regime", expected_evidence_yield=0.7, cost=0.8),
     ResearchTask("macro", "macro", "Assess market and macro regime", expected_evidence_yield=0.6, cost=0.8),
