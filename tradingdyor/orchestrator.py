@@ -62,7 +62,7 @@ class ResearchOrchestrator:
         source_nodes = [n for n in graph.nodes.values() if n.task.id != "synthesis"]
         completed_nodes = [n for n in source_nodes if n.status == "completed"]
         missing_nodes = [
-            {"task_id": n.task.id, "status": n.status, "error": n.error}
+            {"task_id": n.task.id, "status": (n.result.get("status") if isinstance(n.result, dict) and n.result.get("status") in {"partial", "empty", "unavailable"} else n.status), "error": n.error}
             for n in source_nodes
             if n.status in {"failed", "unavailable", "pending", "running"}
             or (isinstance(n.result, dict) and n.result.get("status") in {"partial", "empty", "unavailable"})
