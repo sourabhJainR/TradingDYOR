@@ -70,15 +70,17 @@ def sector(ticker: str) -> dict:
 def macro(ticker: str) -> dict:
     market = "INDIA" if ticker.upper().endswith((".NS", ".BO")) else "US"
     result = macro_state(market)
+    available = result.get("regime", {}).get("name") != "unknown"
+    pressure = macro_pressure(result) if available else None
     return {
-        "status": "available" if result.get("regime", {}).get("name") != "unknown" else "unavailable",
-        "evidence_count": 1 if result.get("regime", {}).get("name") != "unknown" else 0,
+        "status": "available" if available else "unavailable",
+        "evidence_count": 1 if available else 0,
         "macro": result,
-        "macro_pressure": macro_pressure(result),
+        "macro_pressure": pressure,
         "claims": _claims("Market data", [
             ("market regime", result.get("regime", {}).get("name")),
-            ("macro pressure", macro_pressure(result)),
-        ]),
+            ("macro pressure", pressure),
+        ]) if available else [],
     }
 
 
@@ -121,16 +123,19 @@ def events(ticker: str) -> dict:
         }
     ]
     pressure = event_pressure(memory, symbol)
+    status = "unavailable" if memory.load_status == "unavailable" else "available" if selected else "empty"
+    claims = []
+    if status != "unavailable":
+        claims = _claims("Event memory", [("tracked event count", len(selected))])
+        if selected:
+            claims.extend(_claims("Event memory", [("upcoming event pressure", pressure)]))
     return {
-        "status": "unavailable" if memory.load_status == "unavailable" else "available" if selected else "empty",
+        "status": status,
         "error_type": memory.load_error_type,
         "evidence_count": len(selected),
-        "event_pressure": pressure,
+        "event_pressure": pressure if selected else None,
         "events": [asdict(event) for event in selected],
-        "claims": _claims("Event memory", [
-            ("tracked event count", len(selected)),
-            ("upcoming event pressure", pressure),
-        ]),
+        "claims": claims,
     }
 
 
