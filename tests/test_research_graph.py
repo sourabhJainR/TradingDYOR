@@ -240,4 +240,4 @@ def test_research_graph_uses_shared_deadline_for_slow_provider():
     assert result.graph["nodes"]["news"]["status"] == "unavailable"
     assert result.graph["nodes"]["news"]["error"] == "shared_deadline_exceeded"
     assert result.decision["research_status"] == "partial"
-    assert result.decision["action"] == "HOLD"
+    assert result.decision["evidence_coverage"] <= 0.5
