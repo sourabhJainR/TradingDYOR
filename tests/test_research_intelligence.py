@@ -42,3 +42,63 @@ def test_spa_is_served():
     response = client.get("/")
     assert response.status_code == 200
     assert "TradingDYOR" in response.text
+
+
+def test_news_sentiment_only_reduces_confidence_when_it_conflicts_with_fundamentals():
+    from tradingdyor.decision import decide
+    from tradingdyor.models import SecuritySnapshot
+
+    snapshot = SecuritySnapshot(
+        ticker="TEST",
+        price=100.0,
+        pe=15.0,
+        ps=3.0,
+        revenue_growth=0.6,
+        earnings_growth=0.7,
+        roe=0.3,
+        debt_to_equity=0.3,
+        momentum_12m=0.4,
+        volatility_90d=0.2,
+        evidence_coverage=0.9,
+    )
+    baseline = decide(snapshot)
+    conflicting = decide(snapshot.model_copy(update={
+        "news_sentiment_status": "scored",
+        "news_sentiment_score": -4.0,
+        "news_sentiment_confidence": 1.0,
+        "news_sample_count": 12,
+        "news_publisher_count": 5,
+    }))
+    assert conflicting.action == baseline.action
+    assert conflicting.score == baseline.score
+    assert conflicting.confidence < baseline.confidence
+    assert any("news tone conflicts" in reason for reason in conflicting.key_reasons)
+
+
+def test_thin_news_sample_does_not_change_fundamental_decision():
+    from tradingdyor.decision import decide
+    from tradingdyor.models import SecuritySnapshot
+
+    snapshot = SecuritySnapshot(
+        ticker="TEST",
+        price=100.0,
+        pe=15.0,
+        ps=3.0,
+        revenue_growth=0.6,
+        earnings_growth=0.7,
+        roe=0.3,
+        debt_to_equity=0.3,
+        momentum_12m=0.4,
+        volatility_90d=0.2,
+        evidence_coverage=0.9,
+    )
+    baseline = decide(snapshot)
+    thin = decide(snapshot.model_copy(update={
+        "news_sentiment_status": "unscored",
+        "news_sample_count": 2,
+        "news_publisher_count": 1,
+    }))
+    assert thin.action == baseline.action
+    assert thin.score == baseline.score
+    assert thin.confidence == baseline.confidence
+    assert any("news sentiment unscored" in reason for reason in thin.key_reasons)
