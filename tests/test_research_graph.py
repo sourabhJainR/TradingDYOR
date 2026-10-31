@@ -193,3 +193,51 @@ def test_unavailable_news_provider_is_not_counted_as_completed_evidence():
     assert result.decision["research_status"] == "partial"
     assert result.decision["missing_research_tasks"][0]["task_id"] == "news"
     assert result.decision["evidence_coverage"] <= 0.5
+
+
+def test_research_graph_uses_shared_deadline_for_slow_provider():
+    import time
+
+    class Memory:
+        def record(self, _experience):
+            return None
+
+    class NoRetryFabric:
+        memory = Memory()
+
+        def plan(self, capabilities, required_evidence=0.7):
+            return SimpleNamespace(
+                capabilities=tuple(capabilities),
+                retry_budget=0,
+                verification_depth=0.5,
+            )
+
+    snapshot = SecuritySnapshot(
+        ticker="ABC", price=10.0, revenue_growth=0.5, earnings_growth=0.4,
+        roe=0.2, pe=20.0, debt_to_equity=0.2, momentum_12m=0.3,
+        volatility_90d=0.2, evidence_coverage=1.0,
+    )
+    tasks = (
+        ResearchTask("fundamentals", "fundamentals", "Collect fundamentals"),
+        ResearchTask("news", "news", "Collect news"),
+        ResearchTask("synthesis", "synthesis", "Synthesize", depends_on=("fundamentals", "news")),
+    )
+
+    def fundamentals(_ticker):
+        return {"evidence_count": 2, "snapshot": snapshot.model_dump(mode="json"), "claims": []}
+
+    def slow_news(_ticker):
+        time.sleep(0.5)
+        return {"status": "available", "evidence_count": 5, "news": {"status": "available"}}
+
+    started = time.perf_counter()
+    result = ResearchOrchestrator(
+        NoRetryFabric(), max_workers=2, max_duration_seconds=0.1,
+    ).run("ABC", {"fundamentals": fundamentals, "news": slow_news}, ResearchGraph(tasks=tasks))
+    elapsed = time.perf_counter() - started
+
+    assert elapsed < 0.4
+    assert result.graph["nodes"]["news"]["status"] == "unavailable"
+    assert result.graph["nodes"]["news"]["error"] == "shared_deadline_exceeded"
+    assert result.decision["research_status"] == "partial"
+    assert result.decision["action"] == "HOLD"
