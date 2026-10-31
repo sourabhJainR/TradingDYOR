@@ -12,6 +12,8 @@ import time
 
 import yfinance as yf
 
+MAX_EVENT_MEMORY_BYTES = 5_000_000
+
 
 @dataclass(frozen=True)
 class RegimeState:
