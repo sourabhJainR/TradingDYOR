@@ -110,3 +110,81 @@ def test_news_api_selects_india_sources_for_indian_ticker(monkeypatch):
     assert response.status_code == 200
     assert seen["market"] == "INDIA"
     assert seen["ticker"] == "RELIANCE.NS"
+
+
+def test_one_page_brief_uses_graph_news_and_tracked_event_evidence(monkeypatch, tmp_path):
+    monkeypatch.setenv("TRADINGDYOR_PIT_DB", str(tmp_path / "graph-brief.sqlite"))
+    graph = {"nodes": {
+        "fundamentals": {"status": "completed", "evidence_count": 2, "result": {
+            "snapshot": {
+                "ticker": "EXAMPLE", "company_name": "Example Corp", "sector": "Technology",
+                "price": 123.45, "currency": "USD", "price_as_of": "2026-10-30T12:00:00+00:00",
+                "retrieved_at": "2026-10-30T12:05:00+00:00", "market_cap": 1000000,
+            },
+        }},
+        "news": {"status": "completed", "evidence_count": 1, "result": {
+            "status": "partial",
+            "news": {
+                "status": "partial", "retrieved_at": "2026-10-30T12:06:00+00:00",
+                "providers": [{"name": "GDELT", "status": "unavailable"},
+                              {"name": "Google News RSS", "status": "available"}],
+                "articles": [{"story_id": "story-1", "title": "Example update",
+                              "url": "https://news.example/story", "publisher": "Publisher",
+                              "publish_time": "2026-10-30T12:00:00+00:00",
+                              "source_providers": ["Google News RSS"]}],
+                "sentiment": {"status": "unscored", "sample_count": 1, "publisher_count": 1},
+            },
+        }},
+        "events": {"status": "completed", "evidence_count": 1, "result": {
+            "status": "available", "event_pressure": 0.25,
+            "events": [{"event_id": "evt-1", "entity": "EXAMPLE", "category": "company",
+                        "expected_at": "2026-11-15T12:00:00+00:00",
+                        "affected_metrics": ["revenue_growth"],
+                        "thesis_impacts": ["guidance uncertainty"], "source": "issuer"}],
+        }},
+        "filings": {"status": "completed", "evidence_count": 0, "result": {"filings": []}},
+    }}
+    decision = {
+        "ticker": "EXAMPLE", "action": "HOLD", "score": 0.1, "confidence": 0.4,
+        "evidence_coverage": 0.5, "strategy_agreement": 0.5,
+        "thesis": "Insufficient evidence.", "key_reasons": [], "risks": [],
+        "invalidation": [], "research_status": "partial", "missing_research_tasks": [],
+    }
+    run = SimpleNamespace(graph=graph, decision=decision, evidence_yield=0.5,
+                          duration_ms=100.0, contradictions=[])
+    monkeypatch.setattr("tradingdyor.api.ResearchOrchestrator",
+                        lambda _fabric: SimpleNamespace(run=lambda _ticker, _collectors: run))
+    monkeypatch.setattr("tradingdyor.api.fetch_company_news",
+                        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("news graph must be reused")))
+
+    data = TestClient(app).get("/research/brief/EXAMPLE").json()
+    assert data["news"]["status"] == "partial"
+    assert data["news"]["articles"][0]["story_id"] == "story-1"
+    assert data["company"]["currency"] == "USD"
+    assert data["company"]["price_as_of"] == "2026-10-30T12:00:00+00:00"
+    assert data["events"]["event_pressure"] == 0.25
+    assert data["events"]["tracked"][0]["affected_metrics"] == ["revenue_growth"]
+    assert data["events"]["tracked"][0]["thesis_impacts"] == ["guidance uncertainty"]
+
+
+def test_event_forecast_persists_metric_and_thesis_links(monkeypatch, tmp_path):
+    monkeypatch.setenv("TRADINGDYOR_EVENT_DB", str(tmp_path / "events.json"))
+    client = TestClient(app)
+    response = client.post("/research/events/forecast", json={
+        "category": "company",
+        "entity": "EXAMPLE",
+        "expected_at": "2026-11-15T12:00:00+00:00",
+        "window_days": 2,
+        "importance": 0.8,
+        "probability": 0.7,
+        "expected_direction": -0.4,
+        "source": "issuer filing",
+        "affected_metrics": ["revenue_growth", "free_cash_flow"],
+        "thesis_impacts": ["guidance may be reduced"],
+    })
+    assert response.status_code == 200
+    event = response.json()
+    assert event["affected_metrics"] == ["revenue_growth", "free_cash_flow"]
+    assert event["thesis_impacts"] == ["guidance may be reduced"]
+    listed = client.get("/research/events").json()
+    assert listed["events"][0]["event_id"] == event["event_id"]
