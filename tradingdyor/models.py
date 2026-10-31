@@ -37,7 +37,9 @@ class SecuritySnapshot(BaseModel):
     regime_score: float | None = None
     regime_stress: float | None = None
     macro_pressure: float | None = None
+    macro_status: str = "unavailable"
     event_pressure: float | None = None
+    event_status: str = "unavailable"
     news_sentiment_status: str = "unscored"
     news_sentiment_score: float | None = None
     news_sentiment_confidence: float = 0.0
