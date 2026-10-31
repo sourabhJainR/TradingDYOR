@@ -70,3 +70,25 @@ def test_macro_market_validation_rejects_unknown_market():
     import pytest
     with pytest.raises(ValueError):
         macro_state("EUROPE")
+
+
+def test_event_forecast_rejects_naive_time_and_malformed_metric_links():
+    import pytest
+    with pytest.raises(ValueError, match="explicit timezone"):
+        build_forecast("company", "ABC", "2026-11-01T12:00:00", 1, 0.5, 0.5, 0.0, "issuer")
+    with pytest.raises(ValueError, match="must be a list"):
+        build_forecast("company", "ABC", "2026-11-01T12:00:00+00:00", 1, 0.5, 0.5, 0.0, "issuer", "revenue_growth")
+
+
+def test_corrupt_event_memory_is_unavailable_and_not_overwritten(tmp_path):
+    import pytest
+    path = tmp_path / "corrupt-events.json"
+    original = b"{not-json"
+    path.write_bytes(original)
+    memory = EventMemory(path)
+    assert memory.load_status == "unavailable"
+    with pytest.raises(RuntimeError):
+        memory.record_forecast(build_forecast(
+            "company", "ABC", "2026-11-01T12:00:00+00:00", 1, 0.5, 0.5, 0.0, "issuer",
+        ))
+    assert path.read_bytes() == original
