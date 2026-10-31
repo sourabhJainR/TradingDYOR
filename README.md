@@ -75,7 +75,7 @@ The research loop now evaluates the market against long-history regimes rather t
 
 Macro context includes fiscal deficit, debt, policy rates, long rates, FX, dollar conditions, credit stress, growth and inflation where a verified data series is available. India-specific fiscal/debt fields remain source-controlled rather than silently substituting US data.
 
-Upcoming events are modeled as dated forecasts across geopolitical, government, macro, sector and company categories. Each forecast can later be observed with the actual event time, surprise and market reaction. Timing error and directional accuracy are then measured for future calibration.
+Upcoming events are modeled as dated forecasts across geopolitical, government, macro, sector and company categories. Each forecast can link affected financial metrics and thesis assumptions, then be observed with the actual event time, surprise and market reaction. Invalid timezone-less forecasts and unreadable event history fail closed; corrupt history is not silently overwritten. Timing error and directional accuracy are then measured for future calibration.
 
 For India, published advance-tax/direct-tax observations are retained as an early tax-flow signal. They are treated as a leading indicator, not as a direct substitute for company earnings, and the platform does not access confidential taxpayer filings.
 
