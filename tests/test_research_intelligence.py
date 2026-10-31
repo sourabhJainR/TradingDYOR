@@ -171,3 +171,35 @@ def test_macro_collector_uses_ticker_market(monkeypatch):
     assert seen == ["INDIA"]
     assert result["macro_pressure"] == 0.15
     assert result["status"] == "available"
+
+
+def test_unavailable_macro_context_does_not_emit_zero_pressure_claim(monkeypatch):
+    from tradingdyor import research_collectors
+
+    monkeypatch.setattr(research_collectors, "macro_state", lambda _market: {
+        "regime": {"name": "unknown"},
+    })
+    monkeypatch.setattr(research_collectors, "macro_pressure", lambda _state: 0.0)
+    result = research_collectors.macro("ABC")
+    assert result["status"] == "unavailable"
+    assert result["macro_pressure"] is None
+    assert result["claims"] == []
+
+
+def test_empty_or_corrupt_event_memory_is_not_reported_as_zero_event_risk(monkeypatch, tmp_path):
+    from tradingdyor import research_collectors
+
+    empty_path = tmp_path / "empty-events.json"
+    monkeypatch.setenv("TRADINGDYOR_EVENT_DB", str(empty_path))
+    empty = research_collectors.events("ABC")
+    assert empty["status"] == "empty"
+    assert empty["event_pressure"] is None
+    assert all("upcoming event pressure" not in item["claim"] for item in empty["claims"])
+
+    corrupt_path = tmp_path / "corrupt-events.json"
+    corrupt_path.write_text("{bad", encoding="utf-8")
+    monkeypatch.setenv("TRADINGDYOR_EVENT_DB", str(corrupt_path))
+    corrupt = research_collectors.events("ABC")
+    assert corrupt["status"] == "unavailable"
+    assert corrupt["event_pressure"] == 0.0
+    assert corrupt["claims"] == []
