@@ -18,6 +18,8 @@ class SecuritySnapshot(BaseModel):
     currency: str | None = None
     price: float | None = None
     market_cap: float | None = None
+    average_volume: float | None = None
+    dividend_yield: float | None = None
     pe: float | None = None
     ps: float | None = None
     revenue_growth: float | None = None
