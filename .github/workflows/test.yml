@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sourabhJainR/AUREN
-          ref: 0340a56658f0d9d31dc22a32405f88bd792ca9f6
+          ref: 123fa8e0d1a68f0fcca88208b76c7149e0e812c0
           path: .auren-under-test
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -49,4 +49,7 @@ jobs:
       - name: Run cross-domain AUREN runtime tests
         env:
           AUREN_ROOT: ${{ github.workspace }}/.auren-under-test
-        run: python -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_delivery_contract.py' -v
+        run: |
+          python -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_delivery_contract.py' -v
+          pip install pytest
+          PYTHONPATH="${{ github.workspace }}/.auren-under-test" python -m pytest .auren-under-test/tests/test_dashboard_chunked_delivery.py -q
