@@ -4,7 +4,12 @@ from .earnings import earnings_signal
 from .filings import filing_signal_tags, sec_filings
 from .market_data import snapshot_ticker
 from .market_intelligence import corporate_actions_history, earnings_history, sec_insider_transactions
-from .macro_adapter import live_macro
+from .macro_intelligence import macro_state, macro_pressure
+from .news_sentiment import fetch_company_news
+from .regime_intelligence import EventMemory
+from .event_intelligence import event_pressure
+from dataclasses import asdict
+import os
 from .patents import search_patents
 from .sector_adapter import sector_state
 
@@ -63,8 +68,66 @@ def sector(ticker: str) -> dict:
 
 
 def macro(ticker: str) -> dict:
-    result = live_macro()
-    return {"evidence_count": 1, "macro": result, "claims": _claims("Market data", [("market regime", result.get("regime"))])}
+    market = "INDIA" if ticker.upper().endswith((".NS", ".BO")) else "US"
+    result = macro_state(market)
+    return {
+        "evidence_count": 1,
+        "macro": result,
+        "macro_pressure": macro_pressure(result),
+        "claims": _claims("Market data", [
+            ("market regime", result.get("regime", {}).get("name")),
+            ("macro pressure", macro_pressure(result)),
+        ]),
+    }
+
+
+def news(ticker: str) -> dict:
+    market = "INDIA" if ticker.upper().endswith((".NS", ".BO")) else "US"
+    result = fetch_company_news(ticker.upper(), timespan="7d", market=market)
+    articles = result.get("articles", []) if isinstance(result, dict) else []
+    claims = []
+    for article in articles if isinstance(articles, list) else []:
+        if not isinstance(article, dict):
+            continue
+        claims.append({
+            "claim": "news:" + str(article.get("story_id") or article.get("url") or ""),
+            "value": str(article.get("title") or ""),
+            "source": str(article.get("publisher") or "news"),
+            "url": str(article.get("url") or ""),
+            "available_at": article.get("publish_time"),
+            "observed_at": article.get("seen_at"),
+            "confidence": 0.4,
+            "relevance": 0.5,
+        })
+    return {
+        "evidence_count": len(articles),
+        "news": result,
+        "sentiment": result.get("sentiment", {"status": "unscored"}),
+        "claims": claims,
+    }
+
+
+def events(ticker: str) -> dict:
+    path = os.environ.get("TRADINGDYOR_EVENT_DB", ".tradingdyor/events.json")
+    memory = EventMemory(path)
+    symbol = ticker.strip().upper()
+    selected = [
+        event for event in memory.events
+        if event.category != "company"
+        or event.entity.strip().upper() in {
+            symbol, symbol.removesuffix(".NS"), symbol.removesuffix(".BO"),
+        }
+    ]
+    pressure = event_pressure(memory, symbol)
+    return {
+        "evidence_count": len(selected),
+        "event_pressure": pressure,
+        "events": [asdict(event) for event in selected],
+        "claims": _claims("Event memory", [
+            ("tracked event count", len(selected)),
+            ("upcoming event pressure", pressure),
+        ]),
+    }
 
 
 def patents(ticker: str) -> dict:
@@ -83,5 +146,7 @@ COLLECTORS = {
     "corporate_actions": corporate_actions,
     "sector": sector,
     "macro": macro,
+    "news": news,
+    "events": events,
     "patents": patents,
 }
