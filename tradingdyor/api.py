@@ -110,7 +110,8 @@ def _point_in_time_path():
 
 def _persist_brief_observations(ticker, snapshot, events, news):
     now = datetime.now(timezone.utc)
-    snapshot_as_of = _source_datetime(snapshot.get("as_of"))
+    price_as_of = _source_datetime(snapshot.get("price_as_of"))
+    snapshot_retrieved_at = _source_datetime(snapshot.get("retrieved_at")) or now
     news_retrieved_at = _source_datetime(news.get("retrieved_at"))
     added = 0
     eligible_added = 0
@@ -136,8 +137,9 @@ def _persist_brief_observations(ticker, snapshot, events, news):
                 record(Observation(
                     ticker=ticker, as_of=now, metric=metric, value=float(value),
                     source="market-data", source_url=market_url,
-                    available_at=snapshot_as_of, retrieved_at=now,
-                    provider="yfinance", extraction_version="brief-v1",
+                    available_at=price_as_of if metric in {"price", "momentum_12m", "volatility_90d"} else None,
+                    retrieved_at=snapshot_retrieved_at,
+                    provider="yfinance", extraction_version="brief-v2",
                 ))
             filing_rows = events.get("filings", {}).get("filings", [])
             for filing in filing_rows if isinstance(filing_rows, list) else []:
@@ -279,6 +281,8 @@ def research_brief(ticker: str, timespan: str = "7d"):
             "price": snapshot.get("price"),
             "currency": "USD" if not symbol.endswith((".NS", ".BO")) else "INR",
             "as_of": snapshot.get("as_of"),
+            "price_as_of": snapshot.get("price_as_of"),
+            "retrieved_at": snapshot.get("retrieved_at"),
         },
         "recommendation": decision,
         "fundamentals": snapshot,
