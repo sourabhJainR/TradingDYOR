@@ -118,6 +118,10 @@ class ResearchOrchestrator:
                         {"status": "unavailable", "reason": "collector_not_configured"},
                         0,
                     )
+                    self.fabric.memory.record(Experience(
+                        node.task.capability, False, (perf_counter()-started)*1000,
+                        0.0, node.task.verification_required, 0, 0.0,
+                    ))
             ready = [n for n in graph.ready() if n.task.capability in collectors]
             if not ready:
                 continue
@@ -132,6 +136,10 @@ class ResearchOrchestrator:
                             {"status": "unavailable", "reason": "shared_deadline_exceeded"},
                             0,
                         )
+                        self.fabric.memory.record(Experience(
+                            node.task.capability, False, (perf_counter()-started)*1000,
+                            0.0, node.task.verification_required, attempts[node.task.id], 0.0,
+                        ))
                 continue
 
             futures = {}
@@ -143,6 +151,10 @@ class ResearchOrchestrator:
                         {"status": "unavailable", "reason": "provider_capacity_exhausted"},
                         0,
                     )
+                    self.fabric.memory.record(Experience(
+                        node.task.capability, False, (perf_counter()-started)*1000,
+                        0.0, node.task.verification_required, 0, 0.0,
+                    ))
                     continue
                 graph.start(node.task.id)
                 try:
@@ -210,6 +222,10 @@ class ResearchOrchestrator:
                     {"status": "unavailable", "reason": "shared_deadline_exceeded"},
                     0,
                 )
+                self.fabric.memory.record(Experience(
+                    node.task.capability, False, (perf_counter()-started)*1000,
+                    0.0, node.task.verification_required, attempts[node.task.id], 0.0,
+                ))
 
         claims=[]; snapshot_data=None
         for node in graph.nodes.values():
