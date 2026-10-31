@@ -80,3 +80,8 @@ The one-page company snapshot keeps `retrieved_at` separate from `price_as_of`. 
 
 
 Event forecast records can name affected metrics and thesis assumptions. Forecast timestamps must include an explicit timezone, and the event store writes atomically. If the event history cannot be parsed or read, the collector reports unavailable and refuses to overwrite the unreadable history. An empty event list is reported as unknown event risk, not as zero event risk.
+
+
+## Research graph execution budget
+
+Research collectors share one 30-second run deadline. A process-wide executor has eight workers and a 16-slot semaphore bounds active plus queued provider work across concurrent requests. Per-run scheduling submits at most the configured worker count. A slow read-only collector is marked unavailable at the shared deadline; its future is cancelled if it has not started, otherwise it retains its slot until it exits. Capacity exhaustion is a visible unavailable result and a learning signal. Partial/empty/unavailable collectors are excluded from completed evidence yield and source coverage.
