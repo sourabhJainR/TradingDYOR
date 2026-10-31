@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from math import sqrt
 from pathlib import Path
 import json
+import threading
 
 import yfinance as yf
 
@@ -106,46 +107,86 @@ class EventForecast:
 
 
 class EventMemory:
+    _lock = threading.RLock()
+
     def __init__(self, path: str | Path = ".tradingdyor/events.json", max_records: int = 10000):
         self.path = Path(path)
         self.max_records = max_records
         self.events: list[EventForecast] = []
+        self.load_status = "empty"
+        self.load_error_type: str | None = None
         self.load()
 
     def load(self):
         try:
-            data = json.loads(self.path.read_text())
-            self.events = [EventForecast(**x) for x in data.get("events", [])][-self.max_records:]
-        except (OSError, ValueError, TypeError):
+            raw = self.path.read_text(encoding="utf-8")
+        except FileNotFoundError:
             self.events = []
+            self.load_status = "empty"
+            self.load_error_type = None
+            return
+        except OSError as exc:
+            self.events = []
+            self.load_status = "unavailable"
+            self.load_error_type = type(exc).__name__
+            return
+        try:
+            data = json.loads(raw)
+            if not isinstance(data, dict) or not isinstance(data.get("events", []), list):
+                raise ValueError("event memory payload has an invalid shape")
+            self.events = [EventForecast(**item) for item in data.get("events", [])][-self.max_records:]
+            self.load_status = "available" if self.events else "empty"
+            self.load_error_type = None
+        except (ValueError, TypeError, KeyError) as exc:
+            self.events = []
+            self.load_status = "unavailable"
+            self.load_error_type = type(exc).__name__
 
     def save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps({"events": [asdict(x) for x in self.events[-self.max_records:]]}, indent=2))
+        payload = json.dumps({"events": [asdict(x) for x in self.events[-self.max_records:]]}, indent=2)
+        temporary = self.path.with_suffix(self.path.suffix + ".tmp")
+        temporary.write_text(payload, encoding="utf-8")
+        temporary.replace(self.path)
 
     def record_forecast(self, event: EventForecast):
-        self.events = [x for x in self.events if x.event_id != event.event_id]
-        self.events.append(event)
-        self.save()
+        with self._lock:
+            if self.load_status == "unavailable":
+                raise RuntimeError("event memory is unavailable; refusing to overwrite unreadable history")
+            self.events = [x for x in self.events if x.event_id != event.event_id]
+            self.events.append(event)
+            self.save()
+            self.load_status = "available"
 
     def record_observation(self, event_id: str, observed_at: str, reaction: float,
                            surprise: float | None = None):
-        for event in reversed(self.events):
-            if event.event_id == event_id:
-                expected = datetime.fromisoformat(event.expected_at.replace("Z", "+00:00"))
-                observed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
-                event.observed_at = observed_at
-                event.timing_error_days = (observed - expected).total_seconds() / 86400.0
-                event.market_reaction = reaction
-                event.surprise = surprise
-                self.save()
-                return event
-        raise KeyError(event_id)
+        with self._lock:
+            if self.load_status == "unavailable":
+                raise RuntimeError("event memory is unavailable; refusing to overwrite unreadable history")
+            for event in reversed(self.events):
+                if event.event_id == event_id:
+                    expected = datetime.fromisoformat(event.expected_at.replace("Z", "+00:00"))
+                    observed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+                    if expected.tzinfo is None:
+                        expected = expected.replace(tzinfo=timezone.utc)
+                    if observed.tzinfo is None:
+                        observed = observed.replace(tzinfo=timezone.utc)
+                    event.observed_at = observed.astimezone(timezone.utc).isoformat()
+                    event.timing_error_days = (
+                        observed.astimezone(timezone.utc) - expected.astimezone(timezone.utc)
+                    ).total_seconds() / 86400.0
+                    event.market_reaction = reaction
+                    event.surprise = surprise
+                    self.save()
+                    return event
+            raise KeyError(event_id)
 
     def calibration(self):
         observed = [x for x in self.events if x.observed_at and x.market_reaction is not None]
+        if self.load_status == "unavailable":
+            return {"status": "unavailable", "error_type": self.load_error_type, "observations": 0}
         if not observed:
-            return {"observations": 0}
+            return {"status": "unscored", "observations": 0}
         timing = [abs(x.timing_error_days or 0.0) for x in observed]
         directional = [
             (x.expected_direction == 0.0) or (x.expected_direction * x.market_reaction > 0)
