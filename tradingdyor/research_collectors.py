@@ -122,7 +122,8 @@ def events(ticker: str) -> dict:
     ]
     pressure = event_pressure(memory, symbol)
     return {
-        "status": "available" if selected else "empty",
+        "status": "unavailable" if memory.load_status == "unavailable" else "available" if selected else "empty",
+        "error_type": memory.load_error_type,
         "evidence_count": len(selected),
         "event_pressure": pressure,
         "events": [asdict(event) for event in selected],
