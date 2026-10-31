@@ -33,10 +33,16 @@ def decide(s: SecuritySnapshot, evidence_coverage: float | None = None, provenan
     else:
         action="HOLD"
     reasons=[f"{r.name}: {r.score:+.2f}" for r in results]
-    if s.market_regime:
+    if s.macro_status == "available" and s.market_regime:
         reasons.append(f"market regime: {s.market_regime}, stress={s.regime_stress or 0.0:.2f}")
-    if event_pressure:
-        reasons.append(f"upcoming-event pressure: {event_pressure:.2f}")
+    else:
+        reasons.append("macro regime unavailable; no macro adjustment applied")
+    if s.event_status == "available":
+        reasons.append(f"tracked event pressure: {event_pressure:.2f}")
+    elif s.event_status == "empty":
+        reasons.append("no tracked event forecasts; event risk remains unknown")
+    else:
+        reasons.append("event forecast data unavailable; no event adjustment applied")
     if contested:
         reasons.append(f"{contested} claim conflict(s) require review")
     if news_status == "scored" and news_score is not None:
