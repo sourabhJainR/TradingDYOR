@@ -1,0 +1,38 @@
+name: AUREN Runtime Delivery Test Bed
+
+on:
+  pull_request:
+    paths:
+      - "experiments/auren_runtime_delivery/**"
+      - ".github/workflows/auren-runtime-delivery-testbed.yml"
+  push:
+    branches: [main]
+    paths:
+      - "experiments/auren_runtime_delivery/**"
+      - ".github/workflows/auren-runtime-delivery-testbed.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  auren-delivery-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out TradingDYOR
+        uses: actions/checkout@v4
+      - name: Check out pinned AUREN implementation
+        uses: actions/checkout@v4
+        with:
+          repository: sourabhJainR/AUREN
+          ref: 0340a56658f0d9d31dc22a32405f88bd792ca9f6
+          path: .auren-under-test
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run cross-domain AUREN runtime tests
+        env:
+          AUREN_ROOT: ${{ github.workspace }}/.auren-under-test
+        run: python -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_delivery_contract.py' -v
