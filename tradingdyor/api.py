@@ -108,6 +108,10 @@ def _point_in_time_path():
     return os.environ.get("TRADINGDYOR_PIT_DB", ".tradingdyor/point_in_time.sqlite")
 
 
+def _event_memory_path():
+    return os.environ.get("TRADINGDYOR_EVENT_DB", ".tradingdyor/events.json")
+
+
 def _persist_brief_observations(ticker, snapshot, events, news):
     now = datetime.now(timezone.utc)
     price_as_of = _source_datetime(snapshot.get("price_as_of"))
@@ -244,9 +248,28 @@ def research_brief(ticker: str, timespan: str = "7d"):
         "research_status": "unavailable",
         "missing_research_tasks": ["fundamentals"],
     }
-    market = "INDIA" if symbol.endswith((".NS", ".BO")) else "US"
-    news = fetch_company_news(symbol, company_name, timespan=timespan, market=market)
+    news_node = nodes.get("news") if isinstance(nodes, dict) else None
+    if isinstance(news_node, dict):
+        news_result = news_node.get("result")
+        if isinstance(news_result, dict) and isinstance(news_result.get("news"), dict):
+            news = news_result["news"]
+        else:
+            news = {
+                "status": "unavailable" if news_node.get("status") in {"failed", "unavailable"} else "empty",
+                "providers": [],
+                "articles": [],
+                "sentiment": {
+                    "status": "unscored", "score": None, "sample_count": 0,
+                    "publisher_count": 0, "confidence": 0.0,
+                    "reason": "news graph node returned no structured result",
+                },
+            }
+    else:
+        market = "INDIA" if symbol.endswith((".NS", ".BO")) else "US"
+        news = fetch_company_news(symbol, company_name, timespan=timespan, market=market)
     point_in_time = _persist_brief_observations(symbol, snapshot, {"filings": node_result("filings")}, news)
+    event_result = node_result("events")
+    tracked_events = event_result.get("events", []) if isinstance(event_result.get("events"), list) else []
     source_names = {
         "fundamentals": "Company fundamentals",
         "filings": "Regulatory filings",
@@ -257,6 +280,8 @@ def research_brief(ticker: str, timespan: str = "7d"):
         "macro": "Macro context",
         "patents": "Innovation and patents",
         "institutional": "Institutional activity",
+        "news": "Multi-source news",
+        "events": "Tracked event forecasts",
     }
     sources = []
     for key, label in source_names.items():
@@ -279,7 +304,7 @@ def research_brief(ticker: str, timespan: str = "7d"):
             "sector": snapshot.get("sector"),
             "market_cap": snapshot.get("market_cap"),
             "price": snapshot.get("price"),
-            "currency": "USD" if not symbol.endswith((".NS", ".BO")) else "INR",
+            "currency": snapshot.get("currency") or ("INR" if symbol.endswith((".NS", ".BO")) else "USD"),
             "as_of": snapshot.get("as_of"),
             "price_as_of": snapshot.get("price_as_of"),
             "retrieved_at": snapshot.get("retrieved_at"),
@@ -294,6 +319,8 @@ def research_brief(ticker: str, timespan: str = "7d"):
             "sector": node_result("sector"),
             "macro": node_result("macro"),
             "patents": node_result("patents"),
+            "tracked": tracked_events,
+            "event_pressure": event_result.get("event_pressure", 0.0),
         },
         "news": news,
         "research": {
@@ -404,7 +431,7 @@ def regime_history():
 
 @app.get("/research/events")
 def research_events():
-    memory = EventMemory()
+    memory = EventMemory(_event_memory_path())
     return {"events": [x.__dict__ for x in memory.events], "calibration": memory.calibration()}
 
 
@@ -442,7 +469,7 @@ def extract_events(payload: dict):
 @app.post("/research/events/{event_id}/observe")
 def observe_event(event_id: str, payload: dict):
     try:
-        event = EventMemory().record_observation(
+        event = EventMemory(_event_memory_path()).record_observation(
             event_id, str(payload["observed_at"]), float(payload["market_reaction"]),
             float(payload["surprise"]) if payload.get("surprise") is not None else None,
         )
