@@ -118,3 +118,24 @@ def test_concurrent_processes_do_not_lose_event_forecasts(tmp_path):
     assert memory.load_status == "available"
     assert {event.event_id for event in memory.events} == set(ids)
     assert {event.entity for event in memory.events} == {"ABC", "XYZ"}
+
+
+def test_event_memory_lock_has_a_bounded_wait(tmp_path):
+    import pytest
+    from tradingdyor.regime_intelligence import _exclusive_event_file_lock
+
+    path = tmp_path / "locked-events.json"
+    with _exclusive_event_file_lock(path):
+        with pytest.raises(TimeoutError, match="lock deadline"):
+            with _exclusive_event_file_lock(path, timeout_seconds=0.1):
+                pass
+
+
+def test_oversized_event_memory_is_unavailable(tmp_path):
+    from tradingdyor.regime_intelligence import MAX_EVENT_MEMORY_BYTES
+
+    path = tmp_path / "oversized-events.json"
+    path.write_bytes(b"x" * (MAX_EVENT_MEMORY_BYTES + 1))
+    memory = EventMemory(path)
+    assert memory.load_status == "unavailable"
+    assert memory.load_error_type == "EventMemoryTooLarge"
