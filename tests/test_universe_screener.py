@@ -89,7 +89,7 @@ def test_screener_uses_one_shared_deadline_for_universe_and_snapshots():
 
     class SlowUniverse:
         def load(self, market):
-            time.sleep(0.6)
+            time.sleep(0.7)
             return {
                 "status": "available", "cache_status": "fresh",
                 "fetched_at": None, "source_urls": [],
@@ -105,3 +105,33 @@ def test_screener_uses_one_shared_deadline_for_universe_and_snapshots():
     assert result["status"] == "partial"
     assert result["timed_out"] == 1
     assert called == []
+
+
+def test_exchange_download_stops_at_byte_limit_and_closes_response(monkeypatch, tmp_path):
+    import pytest
+    from tradingdyor import universe
+
+    class Response:
+        closed = False
+
+        def raise_for_status(self):
+            return None
+
+        def iter_content(self, chunk_size):
+            assert chunk_size == 65536
+            yield b"12345678"
+            yield b"abcdefgh"
+
+        def close(self):
+            self.closed = True
+
+    response = Response()
+    class Session:
+        def get(self, *_args, **_kwargs):
+            return response
+
+    monkeypatch.setattr(universe, "MAX_UNIVERSE_BYTES", 10)
+    provider = UniverseProvider(tmp_path, session=Session())
+    with pytest.raises(ValueError, match="byte limit"):
+        provider._download("https://exchange.example/list")
+    assert response.closed is True
