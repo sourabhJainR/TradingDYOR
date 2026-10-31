@@ -1,8 +1,21 @@
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
+import multiprocessing
 
 from tradingdyor.advance_tax import from_official_observation, tax_calendar, AdvanceTaxMemory
 from tradingdyor.event_intelligence import build_forecast
 from tradingdyor.regime_intelligence import EventMemory, regime_multiplier
+
+
+
+def _record_event_from_process(path, entity):
+    memory = EventMemory(path)
+    event = build_forecast(
+        "company", entity, "2026-11-15T12:00:00+00:00",
+        2, 0.7, 0.6, 0.2, "issuer filing",
+    )
+    memory.record_forecast(event)
+    return event.event_id
 
 
 def test_event_forecast_is_time_bound_and_persisted(tmp_path):
@@ -92,3 +105,16 @@ def test_corrupt_event_memory_is_unavailable_and_not_overwritten(tmp_path):
             "company", "ABC", "2026-11-01T12:00:00+00:00", 1, 0.5, 0.5, 0.0, "issuer",
         ))
     assert path.read_bytes() == original
+
+
+def test_concurrent_processes_do_not_lose_event_forecasts(tmp_path):
+    path = str(tmp_path / "concurrent-events.json")
+    with ProcessPoolExecutor(
+        max_workers=2,
+        mp_context=multiprocessing.get_context("spawn"),
+    ) as pool:
+        ids = list(pool.map(_record_event_from_process, [path, path], ["ABC", "XYZ"]))
+    memory = EventMemory(path)
+    assert memory.load_status == "available"
+    assert {event.event_id for event in memory.events} == set(ids)
+    assert {event.entity for event in memory.events} == {"ABC", "XYZ"}
