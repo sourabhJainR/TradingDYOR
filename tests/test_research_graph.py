@@ -136,3 +136,60 @@ def test_missing_collector_is_unavailable_not_successful_evidence():
     assert result.graph["nodes"]["synthesis"]["status"] == "completed"
     assert result.graph["nodes"]["synthesis"]["result"]["status"] == "partial"
     assert result.graph["nodes"]["synthesis"]["result"]["missing_tasks"][0]["status"] == "unavailable"
+
+
+def test_default_graph_includes_news_events_and_corporate_actions_in_synthesis():
+    graph = ResearchGraph()
+    synthesis = graph.nodes["synthesis"].task
+    assert {"news", "events", "corporate_actions", "macro"}.issubset(set(synthesis.depends_on))
+    assert "news" in graph.nodes
+    assert "events" in graph.nodes
+
+
+def test_unavailable_news_provider_is_not_counted_as_completed_evidence():
+    class Memory:
+        def record(self, _experience):
+            return None
+
+    class NoRetryFabric:
+        memory = Memory()
+
+        def plan(self, capabilities, required_evidence=0.7):
+            return SimpleNamespace(
+                capabilities=tuple(capabilities),
+                retry_budget=0,
+                verification_depth=0.5,
+            )
+
+    snapshot = SecuritySnapshot(
+        ticker="ABC", price=10.0, revenue_growth=0.5, earnings_growth=0.4,
+        roe=0.2, pe=20.0, debt_to_equity=0.2, momentum_12m=0.3,
+        volatility_90d=0.2, evidence_coverage=1.0,
+    )
+    tasks = (
+        ResearchTask("fundamentals", "fundamentals", "Collect fundamentals"),
+        ResearchTask("news", "news", "Collect multi-source news"),
+        ResearchTask("synthesis", "synthesis", "Synthesize", depends_on=("fundamentals", "news")),
+    )
+
+    def fundamentals(_ticker):
+        return {
+            "evidence_count": 2,
+            "snapshot": snapshot.model_dump(mode="json"),
+            "claims": [{"claim": "revenue growth", "value": "0.5", "source": "SEC"}],
+        }
+
+    def unavailable_news(_ticker):
+        return {"status": "unavailable", "evidence_count": 0, "news": {"status": "unavailable"}}
+
+    result = ResearchOrchestrator(NoRetryFabric(), max_workers=2).run(
+        "ABC", {"fundamentals": fundamentals, "news": unavailable_news},
+        ResearchGraph(tasks=tasks),
+    )
+
+    assert result.graph["nodes"]["news"]["status"] == "unavailable"
+    assert result.graph["nodes"]["news"]["result"]["news"]["status"] == "unavailable"
+    assert result.graph["nodes"]["synthesis"]["result"]["status"] == "partial"
+    assert result.decision["research_status"] == "partial"
+    assert result.decision["missing_research_tasks"][0]["task_id"] == "news"
+    assert result.decision["evidence_coverage"] <= 0.5
