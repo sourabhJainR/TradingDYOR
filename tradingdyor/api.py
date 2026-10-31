@@ -443,8 +443,9 @@ def forecast_event(payload: dict):
             int(payload.get("window_days", 1)), float(payload.get("importance", 0.5)),
             float(payload.get("probability", 0.5)), float(payload.get("expected_direction", 0.0)),
             payload.get("source", "user-provided"),
+            payload.get("affected_metrics", []), payload.get("thesis_impacts", []),
         )
-        memory = EventMemory()
+        memory = EventMemory(_event_memory_path())
         memory.record_forecast(event)
         return event.__dict__
     except (KeyError, ValueError, TypeError) as exc:
@@ -458,7 +459,7 @@ def extract_events(payload: dict):
             str(payload["text"]), str(payload.get("category", "macro")),
             str(payload.get("entity", "market")), str(payload.get("source", "research")),
         )
-        memory = EventMemory()
+        memory = EventMemory(_event_memory_path())
         for event in events:
             memory.record_forecast(event)
         return {"events": [x.__dict__ for x in events]}
