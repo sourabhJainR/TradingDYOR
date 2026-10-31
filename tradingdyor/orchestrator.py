@@ -38,7 +38,8 @@ class ResearchOrchestrator:
         capabilities = [n.task.capability for n in graph.nodes.values() if n.task.id != "synthesis"]
         plan = self.fabric.plan(capabilities, required_evidence=0.7)
         selected = set(plan.capabilities)
-        selected.update({"fundamentals", "news", "macro", "events"})
+        available = {node.task.capability for node in graph.nodes.values() if node.task.id != "synthesis"}
+        selected.update({"fundamentals", "news", "macro", "events"} & available)
         for node in graph.nodes.values():
             if node.task.id == "synthesis":
                 node.task = type(node.task)(
