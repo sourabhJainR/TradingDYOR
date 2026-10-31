@@ -201,5 +201,5 @@ def test_empty_or_corrupt_event_memory_is_not_reported_as_zero_event_risk(monkey
     monkeypatch.setenv("TRADINGDYOR_EVENT_DB", str(corrupt_path))
     corrupt = research_collectors.events("ABC")
     assert corrupt["status"] == "unavailable"
-    assert corrupt["event_pressure"] == 0.0
+    assert corrupt["event_pressure"] is None
     assert corrupt["claims"] == []
