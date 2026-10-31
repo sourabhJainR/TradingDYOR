@@ -10,7 +10,8 @@ def test_one_page_brief_combines_company_recommendation_news_and_provenance(monk
         "fundamentals": {"status": "completed", "evidence_count": 3, "result": {
             "snapshot": {
                 "ticker": "EXAMPLE", "company_name": "Example Corp", "sector": "Technology",
-                "price": 123.45, "market_cap": 1000000, "as_of": "2026-10-30T12:00:00+00:00",
+                "price": 123.45, "market_cap": 1000000, "as_of": "2026-10-30T12:05:00+00:00",
+                "price_as_of": "2026-10-30T12:00:00+00:00", "retrieved_at": "2026-10-30T12:05:00+00:00",
             },
         }},
         "filings": {"status": "failed", "evidence_count": 0, "result": None},
@@ -45,13 +46,13 @@ def test_one_page_brief_combines_company_recommendation_news_and_provenance(monk
     assert data["news"]["sentiment"]["status"] == "unscored"
     assert data["evidence"]["sources"][-1]["name"] == "Google News RSS"
     assert data["point_in_time"]["status"] == "partial"
-    assert data["point_in_time"]["eligible_observations_added"] == 2
+    assert data["point_in_time"]["eligible_observations_added"] == 1
     assert data["point_in_time"]["observations_added"] == 3
     history = TestClient(app).get("/research/history/EXAMPLE", params={"as_of": "2026-10-31T00:00:00+00:00"})
     assert history.status_code == 200
     history_data = history.json()
-    assert history_data["observation_count"] == 2
-    assert {item["metric"] for item in history_data["observations"]} == {"price", "market_cap"}
+    assert history_data["observation_count"] == 1
+    assert {item["metric"] for item in history_data["observations"]} == {"price"}
     assert data["research"]["status"] == "partial"
     assert next(x for x in data["evidence"]["sources"] if x["name"] == "Regulatory filings")["status"] == "failed"
     assert data["advisory_only"] is True
