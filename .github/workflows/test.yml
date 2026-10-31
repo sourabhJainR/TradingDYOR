@@ -49,4 +49,7 @@ jobs:
       - name: Run cross-domain AUREN runtime tests
         env:
           AUREN_ROOT: ${{ github.workspace }}/.auren-under-test
-        run: python -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_*_contract.py' -v
+        run: |
+          python -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_*_contract.py' -v
+          pip install pytest
+          PYTHONPATH="${{ github.workspace }}/.auren-under-test" python -m pytest .auren-under-test/tests/test_dashboard_chunked_delivery.py -q
