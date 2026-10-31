@@ -10,6 +10,11 @@ def snapshot_ticker(ticker: str) -> SecuritySnapshot:
     close=hist["Close"].dropna()
     momentum=None
     volatility=None
+    price_as_of = None
+    if len(close):
+        last_time = close.index[-1].to_pydatetime()
+        price_as_of = last_time.replace(tzinfo=timezone.utc) if last_time.tzinfo is None else last_time.astimezone(timezone.utc)
+    retrieved_at = datetime.now(timezone.utc)
     if len(close)>=252:
         momentum=float(close.iloc[-1]/close.iloc[-252]-1)
     if len(close)>=90:
@@ -17,7 +22,10 @@ def snapshot_ticker(ticker: str) -> SecuritySnapshot:
 
     return SecuritySnapshot(
         ticker=ticker.upper(),
-        as_of=datetime.now(timezone.utc),
+        as_of=retrieved_at,
+        retrieved_at=retrieved_at,
+        price_as_of=price_as_of,
+        currency=info.get("currency"),
         price=float(close.iloc[-1]) if len(close) else info.get("currentPrice"),
         market_cap=info.get("marketCap"),
         pe=info.get("trailingPE"),
