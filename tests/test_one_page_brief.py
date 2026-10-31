@@ -63,6 +63,9 @@ def test_one_page_brief_ui_is_served():
     assert response.status_code == 200
     assert "One-page evidence-first stock brief" in response.text
     assert "News sentiment" in response.text
+    assert "Compare selected" in response.text
+    assert "Price as of" in response.text
+    assert "screenCandidates" in response.text
 
 
 def test_one_page_brief_rejects_invalid_ticker_before_provider_calls(monkeypatch):
