@@ -258,6 +258,28 @@ def screen_universe(
     if not 0.5 <= float(timeout_seconds) <= 15.0:
         raise ValueError("timeout_seconds must be between 0.5 and 15")
     market = market.strip().upper()
+    if market not in {"US", "INDIA"}:
+        raise ValueError("market must be US or INDIA")
+    normalized_exchange = exchange.strip().upper().replace(" ", "_") if exchange else None
+    allowed_exchanges = {"NASDAQ", "NYSE", "NYSE_AMERICAN", "NYSE_ARCA", "CBOE", "IEX", "OTHER_US"} if market == "US" else {"NSE"}
+    if normalized_exchange and normalized_exchange not in allowed_exchanges:
+        raise ValueError(f"unsupported exchange for {market}: {exchange}")
+    selected_filters = dict(filters or {})
+    for name, value in selected_filters.items():
+        if value is None or name == "sector":
+            continue
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"{name} must be numeric")
+        if not math.isfinite(numeric):
+            raise ValueError(f"{name} must be finite")
+        if name == "max_pe" and numeric <= 0:
+            raise ValueError("max_pe must be greater than zero")
+        if name in {"min_market_cap", "max_debt_to_equity", "max_volatility_90d", "min_dividend_yield", "min_average_volume"} and numeric < 0:
+            raise ValueError(f"{name} must be non-negative")
+    if selected_filters.get("sector") is not None and len(str(selected_filters["sector"])) > 80:
+        raise ValueError("sector filter must be at most 80 characters")
     started = time.monotonic()
     provider = universe_provider or UniverseProvider(
         os.environ.get("TRADINGDYOR_UNIVERSE_CACHE", ".tradingdyor/universes"),
