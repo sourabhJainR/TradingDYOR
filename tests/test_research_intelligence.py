@@ -115,7 +115,7 @@ def test_snapshot_separates_market_observation_time_from_retrieval_time(monkeypa
         info = {
             "currency": "INR", "marketCap": 10_000_000,
             "averageVolume": 100_000, "dividendYield": 0.01,
-            "trailingPE": 18.0, "longName": "Example Limited",
+            "trailingPE": float("nan"), "longName": "Example Limited",
         }
 
         def history(self, **_kwargs):
@@ -127,6 +127,7 @@ def test_snapshot_separates_market_observation_time_from_retrieval_time(monkeypa
     assert snapshot.retrieved_at >= snapshot.price_as_of
     assert snapshot.as_of == snapshot.retrieved_at
     assert snapshot.currency == "INR"
+    assert snapshot.pe is None
     assert snapshot.average_volume == 100_000
     assert snapshot.dividend_yield == 0.01
 
