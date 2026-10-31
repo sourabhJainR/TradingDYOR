@@ -3,6 +3,7 @@ from dataclasses import asdict
 import math, os, requests
 import yfinance as yf
 from .macro import classify_regime
+from .regime_intelligence import classify_market_regime
 def _close(ticker,period="1y"):
     try: return yf.Ticker(ticker).history(period=period,auto_adjust=True)["Close"].dropna()
     except Exception: return None
@@ -13,7 +14,8 @@ def live_macro():
     vix_level=float(vix.iloc[-1]/100) if vix is not None and len(vix) else None
     rate=float(tnx.iloc[-1]/100) if tnx is not None and len(tnx) else None
     regime=classify_regime(spy_return,vol,rate)
-    return {"spy_1m_return":spy_return,"realized_vol_3m":vol,"vix":vix_level,"10y_proxy":rate,"regime":asdict(regime),"sources":["Yahoo Finance SPY","Yahoo Finance ^VIX","Yahoo Finance ^TNX"]}
+    historical_regime=classify_market_regime()
+    return {"spy_1m_return":spy_return,"realized_vol_3m":vol,"vix":vix_level,"10y_proxy":rate,"regime":asdict(regime),"historical_regime":asdict(historical_regime),"extreme_event_anchors":"tradingdyor.regime_intelligence.extreme_event_history","sources":["Yahoo Finance SPY","Yahoo Finance ^VIX","Yahoo Finance ^TNX","historical market-regime detector"]}
 def fred_series(series_id,api_key=None,limit=120):
     key=api_key or os.getenv("FRED_API_KEY")
     if not key: return {"series_id":series_id,"status":"not_configured","observations":[]}
