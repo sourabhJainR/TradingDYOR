@@ -135,3 +135,31 @@ def test_exchange_download_stops_at_byte_limit_and_closes_response(monkeypatch, 
     with pytest.raises(ValueError, match="byte limit"):
         provider._download("https://exchange.example/list")
     assert response.closed is True
+
+
+def test_screener_rejects_non_finite_filter_and_missing_non_finite_metrics():
+    import math
+    import pytest
+
+    class FakeUniverse:
+        def load(self, market):
+            return {
+                "status": "available", "cache_status": "fresh",
+                "fetched_at": None, "source_urls": [],
+                "symbols": [{"ticker": "AAA", "name": "Alpha", "exchange": "NASDAQ"}],
+            }
+
+    result = screen_universe(
+        "US", filters={"min_market_cap": 1},
+        universe_provider=FakeUniverse(),
+        snapshot_provider=lambda _ticker: {"market_cap": math.nan},
+    )
+    assert "missing:market_cap" in result["excluded"][0]["exclusion_reasons"]
+    with pytest.raises(ValueError, match="must be finite"):
+        screen_universe("US", filters={"max_pe": math.nan}, universe_provider=FakeUniverse())
+
+
+def test_screener_rejects_exchange_outside_market():
+    import pytest
+    with pytest.raises(ValueError, match="unsupported exchange"):
+        screen_universe("INDIA", exchange="NASDAQ", universe_provider=object())
