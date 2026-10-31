@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sourabhJainR/AUREN
-          ref: 0340a56658f0d9d31dc22a32405f88bd792ca9f6
+          ref: f075961906c50a048a1e071a9c371f5c13e08ca9
           path: .auren-under-test
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -35,4 +35,4 @@ jobs:
       - name: Run cross-domain AUREN runtime tests
         env:
           AUREN_ROOT: ${{ github.workspace }}/.auren-under-test
-        run: python -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_delivery_contract.py' -v
+        run: python -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_*_contract.py' -v
