@@ -63,7 +63,9 @@ class ResearchOrchestrator:
         completed_nodes = [n for n in source_nodes if n.status == "completed"]
         missing_nodes = [
             {"task_id": n.task.id, "status": n.status, "error": n.error}
-            for n in source_nodes if n.status in {"failed", "unavailable", "pending", "running"}
+            for n in source_nodes
+            if n.status in {"failed", "unavailable", "pending", "running"}
+            or (isinstance(n.result, dict) and n.result.get("status") in {"partial", "empty", "unavailable"})
         ]
         skipped_nodes = [
             {"task_id": n.task.id, "status": n.status}
@@ -108,10 +110,27 @@ class ResearchOrchestrator:
                         result=future.result()
                         result=result if isinstance(result,dict) else {"value":result}
                         evidence_count=int(result.get("evidence_count",0))
-                        graph.complete(node.task.id,result,evidence_count)
-                        self.fabric.memory.record(Experience(node.task.capability,True,(perf_counter()-started)*1000,
-                            min(1.0,evidence_count/5.0),node.task.verification_required,attempts[node.task.id]-1,
-                            node.task.expected_evidence_yield))
+                        if result.get("status") == "unavailable":
+                            graph.unavailable(
+                                node.task.id,
+                                str(result.get("reason") or "collector_unavailable"),
+                                result,
+                                evidence_count,
+                            )
+                            self.fabric.memory.record(Experience(
+                                node.task.capability, False, (perf_counter()-started)*1000,
+                                0.0, node.task.verification_required, attempts[node.task.id]-1, 0.0,
+                            ))
+                        else:
+                            graph.complete(node.task.id,result,evidence_count)
+                            quality = min(1.0,evidence_count/5.0)
+                            if result.get("status") in {"partial", "empty"}:
+                                quality = 0.0 if result.get("status") == "empty" else quality * 0.5
+                            self.fabric.memory.record(Experience(
+                                node.task.capability, True, (perf_counter()-started)*1000,
+                                quality, node.task.verification_required, attempts[node.task.id]-1,
+                                node.task.expected_evidence_yield,
+                            ))
                     except Exception as exc:
                         retry_budget=self.fabric.plan([node.task.capability]).retry_budget
                         if attempts[node.task.id] <= retry_budget: graph.nodes[node.task.id].status="pending"
@@ -166,7 +185,11 @@ class ResearchOrchestrator:
                 synthesis_result = graph.nodes.get("synthesis").result if graph.nodes.get("synthesis") else None
                 if isinstance(synthesis_result, dict):
                     source_total = max(1, len([n for n in graph.nodes.values() if n.task.id != "synthesis" and n.status != "skipped"]))
-                    source_completed = len([n for n in graph.nodes.values() if n.task.id != "synthesis" and n.status == "completed"])
+                    source_completed = len([
+                        n for n in graph.nodes.values()
+                        if n.task.id != "synthesis" and n.status == "completed"
+                        and not (isinstance(n.result, dict) and n.result.get("status") in {"partial", "empty", "unavailable"})
+                    ])
                     completeness = min(1.0, source_completed / source_total)
                     decision["evidence_coverage"] = min(float(decision.get("evidence_coverage", 0.0)), completeness)
                     decision["confidence"] = min(float(decision.get("confidence", 0.0)), completeness)
