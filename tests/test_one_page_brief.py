@@ -235,3 +235,33 @@ def test_event_api_reports_corrupt_history_and_refuses_overwrite(monkeypatch, tm
     })
     assert response.status_code == 503
     assert path.read_text(encoding="utf-8") == "{corrupt"
+
+
+def test_one_page_brief_passes_requested_news_window_to_graph_collector(monkeypatch, tmp_path):
+    monkeypatch.setenv("TRADINGDYOR_PIT_DB", str(tmp_path / "timespan.sqlite"))
+    seen = {}
+
+    def fake_news(ticker, *, timespan, market):
+        seen.update({"ticker": ticker, "timespan": timespan, "market": market})
+        return {
+            "status": "empty", "providers": [], "articles": [],
+            "retrieved_at": "2026-10-31T00:00:00+00:00",
+            "sentiment": {"status": "unscored", "sample_count": 0, "publisher_count": 0},
+        }
+
+    monkeypatch.setattr("tradingdyor.research_collectors.fetch_company_news", fake_news)
+
+    def fake_run(ticker, collectors):
+        news_result = collectors["news"](ticker)
+        return SimpleNamespace(
+            graph={"nodes": {"news": {"status": "completed", "result": {
+                "status": "empty", "news": news_result,
+            }}}},
+            decision=None, evidence_yield=0.0, duration_ms=1.0, contradictions=[],
+        )
+
+    monkeypatch.setattr("tradingdyor.api.ResearchOrchestrator",
+                        lambda _fabric: SimpleNamespace(run=fake_run))
+    response = TestClient(app).get("/research/brief/ABC?timespan=30d")
+    assert response.status_code == 200
+    assert seen == {"ticker": "ABC", "timespan": "30d", "market": "US"}
