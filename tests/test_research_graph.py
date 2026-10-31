@@ -227,12 +227,12 @@ def test_research_graph_uses_shared_deadline_for_slow_provider():
         return {"evidence_count": 2, "snapshot": snapshot.model_dump(mode="json"), "claims": []}
 
     def slow_news(_ticker):
-        time.sleep(0.5)
+        time.sleep(0.8)
         return {"status": "available", "evidence_count": 5, "news": {"status": "available"}}
 
     started = time.perf_counter()
     result = ResearchOrchestrator(
-        NoRetryFabric(), max_workers=2, max_duration_seconds=0.1,
+        NoRetryFabric(), max_workers=2, max_duration_seconds=0.3,
     ).run("ABC", {"fundamentals": fundamentals, "news": slow_news}, ResearchGraph(tasks=tasks))
     elapsed = time.perf_counter() - started
 
