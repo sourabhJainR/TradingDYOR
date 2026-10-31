@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, wait
+import threading
 from dataclasses import dataclass
 from time import perf_counter
 from typing import Callable
@@ -16,6 +17,13 @@ from .research_graph import ResearchGraph
 
 Collector = Callable[[str], dict]
 
+_RESEARCH_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="tradingdyor-research")
+_RESEARCH_SLOTS = threading.BoundedSemaphore(16)
+
+
+def _release_research_slot(_future):
+    _RESEARCH_SLOTS.release()
+
 @dataclass(frozen=True)
 class ResearchRun:
     ticker: str
@@ -29,9 +37,11 @@ class ResearchRun:
 
 class ResearchOrchestrator:
     def __init__(self, fabric: DecisionFabric | None = None, max_workers: int = 4,
-                 outcome_memory: OutcomeMemory | None = None):
+                 outcome_memory: OutcomeMemory | None = None, *,
+                 max_duration_seconds: float = 30.0):
         self.fabric = fabric or DecisionFabric()
-        self.max_workers = max(1, max_workers)
+        self.max_workers = max(1, min(int(max_workers), 8))
+        self.max_duration_seconds = max(0.1, min(float(max_duration_seconds), 120.0))
         self.outcomes = outcome_memory or OutcomeMemory()
 
     def plan(self, graph: ResearchGraph) -> dict:
@@ -87,57 +97,119 @@ class ResearchOrchestrator:
         started = perf_counter()
         plan = self.plan(graph)
         attempts = {k: 0 for k in graph.nodes}
+        deadline = started + self.max_duration_seconds
         while True:
             ready = graph.ready()
-            if not ready: break
+            if not ready:
+                break
             synthesis = [n for n in ready if n.task.id == "synthesis"]
             if synthesis:
-                node=synthesis[0]; graph.start(node.task.id)
-                result=self._synthesize(ticker, graph); graph.complete(node.task.id,result,result["evidence_count"]); continue
-            ready=[n for n in ready if n.task.capability in collectors]
+                node = synthesis[0]
+                graph.start(node.task.id)
+                result = self._synthesize(ticker, graph)
+                graph.complete(node.task.id, result, result["evidence_count"])
+                continue
+
             for node in graph.ready():
                 if node.task.capability not in collectors:
-                    graph.unavailable(node.task.id, "collector_not_configured")
-            if not ready: continue
-            with ThreadPoolExecutor(max_workers=min(self.max_workers,len(ready))) as pool:
-                futures={}
-                for node in ready:
-                    graph.start(node.task.id)
-                    futures[pool.submit(collectors[node.task.capability],ticker)]=node
-                for future in as_completed(futures):
-                    node=futures[future]; attempts[node.task.id]+=1
-                    try:
-                        result=future.result()
-                        result=result if isinstance(result,dict) else {"value":result}
-                        evidence_count=int(result.get("evidence_count",0))
-                        if result.get("status") == "unavailable":
-                            graph.unavailable(
-                                node.task.id,
-                                str(result.get("reason") or "collector_unavailable"),
-                                result,
-                                evidence_count,
-                            )
-                            self.fabric.memory.record(Experience(
-                                node.task.capability, False, (perf_counter()-started)*1000,
-                                0.0, node.task.verification_required, attempts[node.task.id]-1, 0.0,
-                            ))
-                        else:
-                            graph.complete(node.task.id,result,evidence_count)
-                            quality = min(1.0,evidence_count/5.0)
-                            if result.get("status") in {"partial", "empty"}:
-                                quality = 0.0 if result.get("status") == "empty" else quality * 0.5
-                            self.fabric.memory.record(Experience(
-                                node.task.capability, True, (perf_counter()-started)*1000,
-                                quality, node.task.verification_required, attempts[node.task.id]-1,
-                                node.task.expected_evidence_yield,
-                            ))
-                    except Exception as exc:
-                        retry_budget=self.fabric.plan([node.task.capability]).retry_budget
-                        if attempts[node.task.id] <= retry_budget: graph.nodes[node.task.id].status="pending"
-                        else:
-                            graph.fail(node.task.id,str(exc))
-                            self.fabric.memory.record(Experience(node.task.capability,False,(perf_counter()-started)*1000,
-                                0.0,node.task.verification_required,attempts[node.task.id]-1,0.0))
+                    graph.unavailable(
+                        node.task.id,
+                        "collector_not_configured",
+                        {"status": "unavailable", "reason": "collector_not_configured"},
+                        0,
+                    )
+            ready = [n for n in graph.ready() if n.task.capability in collectors]
+            if not ready:
+                continue
+
+            remaining = deadline - perf_counter()
+            if remaining <= 0:
+                for node in graph.nodes.values():
+                    if node.task.id != "synthesis" and node.status in {"pending", "running"}:
+                        graph.unavailable(
+                            node.task.id,
+                            "shared_deadline_exceeded",
+                            {"status": "unavailable", "reason": "shared_deadline_exceeded"},
+                            0,
+                        )
+                continue
+
+            futures = {}
+            for node in ready[:self.max_workers]:
+                if not _RESEARCH_SLOTS.acquire(blocking=False):
+                    graph.unavailable(
+                        node.task.id,
+                        "provider_capacity_exhausted",
+                        {"status": "unavailable", "reason": "provider_capacity_exhausted"},
+                        0,
+                    )
+                    continue
+                graph.start(node.task.id)
+                try:
+                    future = _RESEARCH_EXECUTOR.submit(collectors[node.task.capability], ticker)
+                    future.add_done_callback(_release_research_slot)
+                    futures[future] = node
+                except Exception:
+                    _RESEARCH_SLOTS.release()
+                    graph.unavailable(
+                        node.task.id,
+                        "provider_dispatch_failed",
+                        {"status": "unavailable", "reason": "provider_dispatch_failed"},
+                        0,
+                    )
+
+            if not futures:
+                continue
+            remaining = max(0.0, deadline - perf_counter())
+            done, pending = wait(futures, timeout=remaining)
+            for future in done:
+                node = futures[future]
+                attempts[node.task.id] += 1
+                try:
+                    result = future.result()
+                    result = result if isinstance(result, dict) else {"value": result}
+                    evidence_count = int(result.get("evidence_count", 0))
+                    if result.get("status") == "unavailable":
+                        graph.unavailable(
+                            node.task.id,
+                            str(result.get("reason") or "collector_unavailable"),
+                            result,
+                            evidence_count,
+                        )
+                        self.fabric.memory.record(Experience(
+                            node.task.capability, False, (perf_counter()-started)*1000,
+                            0.0, node.task.verification_required, attempts[node.task.id]-1, 0.0,
+                        ))
+                    else:
+                        graph.complete(node.task.id, result, evidence_count)
+                        quality = min(1.0, evidence_count / 5.0)
+                        if result.get("status") in {"partial", "empty"}:
+                            quality = 0.0 if result.get("status") == "empty" else quality * 0.5
+                        self.fabric.memory.record(Experience(
+                            node.task.capability, True, (perf_counter()-started)*1000,
+                            quality, node.task.verification_required, attempts[node.task.id]-1,
+                            node.task.expected_evidence_yield,
+                        ))
+                except Exception as exc:
+                    retry_budget = self.fabric.plan([node.task.capability]).retry_budget
+                    if attempts[node.task.id] <= retry_budget:
+                        graph.nodes[node.task.id].status = "pending"
+                    else:
+                        graph.fail(node.task.id, type(exc).__name__)
+                        self.fabric.memory.record(Experience(
+                            node.task.capability, False, (perf_counter()-started)*1000,
+                            0.0, node.task.verification_required, attempts[node.task.id]-1, 0.0,
+                        ))
+
+            for future in pending:
+                node = futures[future]
+                future.cancel()
+                graph.unavailable(
+                    node.task.id,
+                    "shared_deadline_exceeded",
+                    {"status": "unavailable", "reason": "shared_deadline_exceeded"},
+                    0,
+                )
 
         claims=[]; snapshot_data=None
         for node in graph.nodes.values():
