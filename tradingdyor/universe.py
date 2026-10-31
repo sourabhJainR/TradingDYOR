@@ -265,6 +265,15 @@ def screen_universe(
     if normalized_exchange and normalized_exchange not in allowed_exchanges:
         raise ValueError(f"unsupported exchange for {market}: {exchange}")
     selected_filters = dict(filters or {})
+    allowed_filters = {
+        "sector", "min_market_cap", "max_pe", "min_revenue_growth",
+        "min_earnings_growth", "min_roe", "max_debt_to_equity",
+        "min_momentum_12m", "max_volatility_90d", "min_dividend_yield",
+        "min_average_volume",
+    }
+    unknown_filters = set(selected_filters) - allowed_filters
+    if unknown_filters:
+        raise ValueError("unsupported screener filter(s): " + ", ".join(sorted(unknown_filters)))
     for name, value in selected_filters.items():
         if value is None or name == "sector":
             continue
