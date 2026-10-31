@@ -167,17 +167,29 @@ class ResearchOrchestrator:
 
                 macro_node = graph.nodes.get("macro")
                 macro_result = macro_node.result if macro_node and isinstance(macro_node.result, dict) else {}
+                macro_status = macro_result.get("status", "unavailable")
+                snapshot_data["macro_status"] = macro_status
                 macro_data = macro_result.get("macro", {})
                 regime = macro_data.get("regime", {}) if isinstance(macro_data, dict) else {}
-                if isinstance(regime, dict):
+                if macro_status == "available" and isinstance(regime, dict):
                     snapshot_data["market_regime"] = regime.get("name")
                     snapshot_data["regime_score"] = regime.get("score")
                     snapshot_data["regime_stress"] = regime.get("stress")
-                snapshot_data["macro_pressure"] = macro_result.get("macro_pressure")
+                    snapshot_data["macro_pressure"] = macro_result.get("macro_pressure")
+                else:
+                    snapshot_data["market_regime"] = "unknown"
+                    snapshot_data["regime_score"] = None
+                    snapshot_data["regime_stress"] = None
+                    snapshot_data["macro_pressure"] = None
 
                 events_node = graph.nodes.get("events")
                 events_result = events_node.result if events_node and isinstance(events_node.result, dict) else {}
-                snapshot_data["event_pressure"] = events_result.get("event_pressure", 0.0)
+                event_status = events_result.get("status", "unavailable")
+                snapshot_data["event_status"] = event_status
+                snapshot_data["event_pressure"] = (
+                    events_result.get("event_pressure")
+                    if event_status == "available" else None
+                )
 
                 snapshot=SecuritySnapshot.model_validate(snapshot_data)
                 decision_model=decide(snapshot,evidence_coverage=provenance["evidence"]["coverage"],provenance=provenance)
