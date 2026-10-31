@@ -78,3 +78,5 @@ SOURCES.extend([
     Source("NYSE Other Listed Symbol Directory", "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt", "universe"),
     Source("NSE Equity List", "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv", "universe"),
 ])
+
+SOURCES.append(Source("Yahoo Finance", "https://finance.yahoo.com/", "market-data"))
