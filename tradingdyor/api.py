@@ -105,6 +105,8 @@ def research_screener(
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+    except OSError as exc:
+        raise HTTPException(503, {"message": "screener cache is unavailable", "error_type": type(exc).__name__})
     if result.get("status") == "unavailable":
         raise HTTPException(503, {
             "message": "exchange universe unavailable and no usable cache exists",
