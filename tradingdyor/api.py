@@ -370,7 +370,9 @@ def research_brief(ticker: str, timespan: str = "7d"):
             "macro": node_result("macro"),
             "patents": node_result("patents"),
             "tracked": tracked_events,
-            "event_pressure": event_result.get("event_pressure", 0.0),
+            "event_pressure": event_result.get("event_pressure"),
+            "event_status": event_result.get("status", "unavailable"),
+            "macro_status": node_result("macro").get("status", "unavailable"),
         },
         "news": news,
         "research": {
