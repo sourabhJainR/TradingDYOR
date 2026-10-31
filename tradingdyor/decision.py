@@ -11,7 +11,7 @@ def decide(s: SecuritySnapshot, evidence_coverage: float | None = None, provenan
     event_pressure = min(1.0, max(0.0, s.event_pressure or 0.0))
     coverage=min(1.0, max(0.0, s.evidence_coverage if evidence_coverage is None else evidence_coverage))
     contested=sum(1 for x in (provenance or {}).get("reconciled", []) if x.get("status") == "contested")
-    confidence=max(0.0,min(1.0,0.55*agreement+0.45*coverage-0.05*min(5,contested)-0.12*event_pressure-0.08*(s.regime_stress or 0.0)))
+    confidence=max(0.0,min(1.0,0.55*agreement+0.45*coverage-0.05*min(5,contested)-0.12*event_pressure-0.08*(s.regime_stress or 0.0)-0.10*(s.macro_pressure or 0.0)))
     if coverage < 0.40:
         action="HOLD"
     elif score >= 0.25:
