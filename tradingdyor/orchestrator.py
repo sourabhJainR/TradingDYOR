@@ -70,7 +70,7 @@ class ResearchOrchestrator:
                 if node.task.id == "fundamentals" and node.result.get("snapshot"):
                     snapshot = node.result["snapshot"]
         source_nodes = [n for n in graph.nodes.values() if n.task.id != "synthesis"]
-        completed_nodes = [n for n in source_nodes if n.status == "completed"]
+        completed_nodes = [n for n in source_nodes if n.status == "completed" and not (isinstance(n.result, dict) and n.result.get("status") in {"partial", "empty", "unavailable"})]
         missing_nodes = [
             {"task_id": n.task.id, "status": (n.result.get("status") if isinstance(n.result, dict) and n.result.get("status") in {"partial", "empty", "unavailable"} else n.status), "error": n.error}
             for n in source_nodes
@@ -299,7 +299,7 @@ class ResearchOrchestrator:
                     decision["research_status"] = synthesis_result.get("status", "unknown")
                     decision["missing_research_tasks"] = synthesis_result.get("missing_tasks", [])
                 if snapshot.price and decision_model.action in {"BUY","SELL","HOLD"}:
-                    capabilities=tuple(sorted({n.task.capability for n in graph.nodes.values() if n.status=="completed" and n.task.id!="synthesis"}))
+                    capabilities=tuple(sorted({n.task.capability for n in graph.nodes.values() if n.status=="completed" and n.task.id!="synthesis" and not (isinstance(n.result, dict) and n.result.get("status") in {"partial", "empty", "unavailable"})}))
                     sources=tuple(sorted({str(c.get("source","Unknown")) for c in claims if c.get("source")}))
                     episode_id=stable_episode_id(ticker,decision_model.as_of.isoformat())
                     self.outcomes.record_decision(DecisionEpisode(
@@ -312,6 +312,6 @@ class ResearchOrchestrator:
                 decision={"status":"unavailable","reason":f"decision_synthesis_failed: {exc}"}
         duration_ms=(perf_counter()-started)*1000
         evidence_count=sum(n.evidence_count for n in graph.nodes.values())
-        completed=max(1,len([n for n in graph.nodes.values() if n.status=="completed" and n.task.id!="synthesis"]))
+        completed=max(1,len([n for n in graph.nodes.values() if n.status=="completed" and n.task.id!="synthesis" and not (isinstance(n.result, dict) and n.result.get("status") in {"partial", "empty", "unavailable"})]))
         evidence_yield=min(1.0,evidence_count/(completed*5.0))
         return ResearchRun(ticker,graph.snapshot(),provenance,contradictions,decision,evidence_yield,duration_ms,episode_id)
