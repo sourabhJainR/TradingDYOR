@@ -8,6 +8,7 @@ from pathlib import Path
 import json
 import os
 import threading
+import time
 
 import yfinance as yf
 
@@ -109,9 +110,10 @@ class EventForecast:
 
 
 @contextmanager
-def _exclusive_event_file_lock(path: Path):
+def _exclusive_event_file_lock(path: Path, timeout_seconds: float = 2.0):
     lock_path = Path(str(path) + ".lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + timeout_seconds
     with lock_path.open("a+b") as handle:
         if os.name == "nt":
             import msvcrt
@@ -120,7 +122,14 @@ def _exclusive_event_file_lock(path: Path):
                 handle.write(b"0")
                 handle.flush()
             handle.seek(0)
-            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+            while True:
+                try:
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("event memory lock deadline exceeded")
+                    time.sleep(0.05)
             try:
                 yield
             finally:
@@ -128,7 +137,14 @@ def _exclusive_event_file_lock(path: Path):
                 msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
         else:
             import fcntl
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            while True:
+                try:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("event memory lock deadline exceeded")
+                    time.sleep(0.05)
             try:
                 yield
             finally:
@@ -148,6 +164,11 @@ class EventMemory:
 
     def load(self):
         try:
+            if self.path.stat().st_size > MAX_EVENT_MEMORY_BYTES:
+                self.events = []
+                self.load_status = "unavailable"
+                self.load_error_type = "EventMemoryTooLarge"
+                return
             raw = self.path.read_text(encoding="utf-8")
         except FileNotFoundError:
             self.events = []
