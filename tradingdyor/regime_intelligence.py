@@ -28,9 +28,13 @@ def _series(ticker: str, period: str = "15y"):
         return None
 
 
-def classify_market_regime() -> RegimeState:
-    close = _series("SPY", "15y")
-    vix = _series("^VIX", "15y")
+def classify_market_regime(market: str = "US") -> RegimeState:
+    market = market.upper()
+    if market not in {"US", "INDIA"}:
+        raise ValueError("market must be US or INDIA")
+    benchmark, volatility_index = ("^NSEI", "^INDIAVIX") if market == "INDIA" else ("SPY", "^VIX")
+    close = _series(benchmark, "15y")
+    vix = _series(volatility_index, "15y")
     if close is None or close.empty:
         return RegimeState("unknown", 0.0, None, None, None, 0.5, 0.2, ("market history unavailable",))
 
@@ -38,8 +42,8 @@ def classify_market_regime() -> RegimeState:
     vol = float(daily.tail(63).std() * sqrt(252)) if len(daily) >= 63 else None
     ma200 = float(close.tail(200).mean()) if len(close) >= 200 else None
     trend = float(close.iloc[-1] / ma200 - 1.0) if ma200 else None
-    peak = float(close.cummax().iloc[-1])
-    drawdown = float(close.iloc[-1] / peak - 1.0) if peak else None
+    recent_peak = float(close.tail(252).max())
+    drawdown = float(close.iloc[-1] / recent_peak - 1.0) if recent_peak else None
     vix_level = float(vix.iloc[-1] / 100.0) if vix is not None and len(vix) else None
 
     stress = 0.0
