@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import time
 import unittest
 
 AUREN_ROOT = Path(os.environ["AUREN_ROOT"]).resolve()
@@ -145,7 +146,7 @@ class AurenRuntimeDeliveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ResponseDeliveryError, "digest mismatch"):
             assemble_response(manifest, changed)
 
-    def test_cancellation_and_deadline_leave_only_confirmed_cursor(self):
+    def test_cancellation_leaves_only_confirmed_cursor(self):
         source = research_evidence_bundle()
         journal = ProgressJournal(self.journal_path)
         accepted = []
@@ -175,6 +176,31 @@ class AurenRuntimeDeliveryTests(unittest.TestCase):
         self.assertEqual(checkpoint["acknowledged_index"], 1)
         self.assertEqual(len(accepted), 1)
         self.assertGreater(len(chunks), 1)
+
+    def test_expired_deadline_sends_no_chunk_and_advances_no_cursor(self):
+        source = research_evidence_bundle()
+        journal = ProgressJournal(self.journal_path)
+        sent = []
+
+        def receiver(chunk, _key):
+            sent.append(chunk)
+            return {
+                "response_id": chunk.response_id,
+                "index": chunk.index,
+                "sha256": chunk.sha256,
+            }
+
+        manifest, _ = chunk_response(source, max_bytes=512)
+        with self.assertRaisesRegex(TimeoutError, "deadline expired"):
+            deliver_response(
+                source, task_id=self.task_id, journal=journal,
+                send_chunk=receiver, max_bytes=512, deadline=time.monotonic() - 1,
+            )
+        checkpoint = ProgressJournal(self.journal_path).response_delivery_checkpoint(
+            self.task_id, manifest.response_id
+        )
+        self.assertEqual(sent, [])
+        self.assertEqual(checkpoint["acknowledged_index"], 0)
 
 
 if __name__ == "__main__":
