@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 from concurrent.futures import ThreadPoolExecutor, wait
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from io import StringIO
 import json
 import os
@@ -230,8 +230,10 @@ def screen_universe(
     if not 0.5 <= float(timeout_seconds) <= 15.0:
         raise ValueError("timeout_seconds must be between 0.5 and 15")
     market = market.strip().upper()
+    started = time.monotonic()
     provider = universe_provider or UniverseProvider(
         os.environ.get("TRADINGDYOR_UNIVERSE_CACHE", ".tradingdyor/universes"),
+        timeout=min(8.0, float(timeout_seconds) / 2.0),
     )
     universe = provider.load(market)
     if universe["status"] == "unavailable":
@@ -245,6 +247,22 @@ def screen_universe(
         wanted = exchange.strip().upper().replace(" ", "_")
         symbols = [row for row in symbols if row.get("exchange", "").upper() == wanted]
     page = symbols[offset:offset + limit]
+    remaining = max(0.0, float(timeout_seconds) - (time.monotonic() - started))
+    if remaining <= 0:
+        return {
+            "status": "partial", "market": market, "exchange": exchange,
+            "universe_status": universe["status"],
+            "universe_cache_status": universe["cache_status"],
+            "universe_fetched_at": universe.get("fetched_at"),
+            "universe_sources": universe.get("source_urls", []),
+            "offset": offset, "next_offset": offset + len(page),
+            "page_size": len(page), "candidate_count": len(symbols),
+            "screened_count": 0, "included": [],
+            "excluded": [{**row, "status": "timeout", "error_type": "SharedDeadline"} for row in page],
+            "filters": dict(filters or {}), "timed_out": len(page),
+            "capacity_limited": 0, "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "advisory_only": True,
+        }
     selected_filters = dict(filters or {})
     loader = snapshot_provider or _cached_snapshot
     futures = {}
@@ -260,7 +278,7 @@ def screen_universe(
         else:
             future = _SNAPSHOT_EXECUTOR.submit(loader, ticker)
         futures[future] = row
-    done, pending = wait(futures, timeout=float(timeout_seconds))
+    done, pending = wait(futures, timeout=remaining)
     included, excluded = [], []
     for future in done:
         row = futures[future]
