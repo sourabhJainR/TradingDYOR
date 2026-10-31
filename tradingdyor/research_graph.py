@@ -70,11 +70,13 @@ class ResearchGraph:
         n.completed_at = datetime.now(timezone.utc).isoformat()
         n.error = error
 
-    def unavailable(self, task_id: str, reason: str) -> None:
+    def unavailable(self, task_id: str, reason: str, result: dict | None = None, evidence_count: int = 0) -> None:
         n = self.nodes[task_id]
         n.status = "unavailable"
         n.completed_at = datetime.now(timezone.utc).isoformat()
         n.error = reason
+        n.result = result
+        n.evidence_count = evidence_count
 
     def snapshot(self) -> dict:
         return {
