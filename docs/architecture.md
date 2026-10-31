@@ -64,3 +64,16 @@ The event loop is:
 forecast -> expected window -> observation -> surprise -> market reaction -> timing error -> calibration -> future event weighting.
 
 This is intentionally separated from the raw evidence ledger so learning cannot rewrite historical facts.
+
+
+## Bounded market screener
+
+The screener discovers US listed equity candidates from Nasdaq Trader symbol directories and India EQ-series candidates from NSE's equity list. It caches each universe for 24 hours, filters test issues and ETFs, and screens up to 12 symbols per request. Snapshot fan-out is bounded by a shared 15-second deadline, a process-wide eight-worker pool and a 16-slot in-flight ceiling. The screener returns partial results for stale universes, provider timeouts, capacity limits and unavailable metrics; it never treats a missing metric as a passing filter.
+
+Filters include market capitalization, P/E, revenue and earnings growth, ROE, debt/equity, 12-month momentum, 90-day volatility, dividend yield, average volume and sector. A candidate is linked to the same ticker's one-page brief.
+
+The exchange directory is a candidate universe, not a complete security master. It does not yet include a point-in-time archive of historical universe membership or guarantee that every security has a complete Yahoo Finance snapshot. The screener is advisory-only and does not execute trades.
+
+## Source timestamp contract
+
+The one-page company snapshot keeps `retrieved_at` separate from `price_as_of`. Price, momentum and volatility observations may enter point-in-time history only when the source market-data timestamp is known. Fundamentals with only a retrieval timestamp remain visible in the current brief but are not treated as historically available. GDELT seen time and Google News publication time remain separate. News sentiment can lower confidence when it conflicts with fundamentals, but it cannot change the directional score; low-sample sentiment remains unscored.
