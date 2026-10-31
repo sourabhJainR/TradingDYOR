@@ -270,8 +270,10 @@ def research_brief(ticker: str, timespan: str = "7d"):
         raise HTTPException(400, "invalid ticker symbol")
     if timespan not in {"1d", "3d", "7d", "14d", "30d"}:
         raise HTTPException(400, "timespan must be one of 1d, 3d, 7d, 14d, 30d")
+    brief_collectors = dict(COLLECTORS)
+    brief_collectors["news"] = lambda value: COLLECTORS["news"](value, timespan=timespan)
     try:
-        run = ResearchOrchestrator(fabric).run(symbol, COLLECTORS)
+        run = ResearchOrchestrator(fabric).run(symbol, brief_collectors)
     except Exception as exc:
         raise HTTPException(502, f"research graph unavailable: {type(exc).__name__}")
     nodes = run.graph.get("nodes", {}) if isinstance(run.graph, dict) else {}
