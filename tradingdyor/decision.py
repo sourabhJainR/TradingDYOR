@@ -20,7 +20,11 @@ def decide(s: SecuritySnapshot, evidence_coverage: float | None = None, provenan
         action="SELL"
     else:
         action="HOLD"
-    reasons=[f"{r.name}: {r.score:+.2f}" for r in results]\n    if s.market_regime:\n        reasons.append(f"market regime: {s.market_regime}, stress={s.regime_stress or 0.0:.2f}")\n    if event_pressure:\n        reasons.append(f"upcoming-event pressure: {event_pressure:.2f}")
+    reasons=[f"{r.name}: {r.score:+.2f}" for r in results]
+    if s.market_regime:
+        reasons.append(f"market regime: {s.market_regime}, stress={s.regime_stress or 0.0:.2f}")
+    if event_pressure:
+        reasons.append(f"upcoming-event pressure: {event_pressure:.2f}")
     if contested:
         reasons.append(f"{contested} claim conflict(s) require review")
     direction = "upside" if action == "BUY" else "downside" if action == "SELL" else "limited directional edge"
