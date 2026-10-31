@@ -28,6 +28,8 @@ def snapshot_ticker(ticker: str) -> SecuritySnapshot:
         currency=info.get("currency"),
         price=float(close.iloc[-1]) if len(close) else info.get("currentPrice"),
         market_cap=info.get("marketCap"),
+        average_volume=info.get("averageVolume"),
+        dividend_yield=info.get("dividendYield"),
         pe=info.get("trailingPE"),
         ps=info.get("priceToSalesTrailing12Months"),
         revenue_growth=info.get("revenueGrowth"),
