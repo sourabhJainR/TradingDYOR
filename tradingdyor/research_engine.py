@@ -3,12 +3,17 @@ from __future__ import annotations
 from .market_data import snapshot_ticker
 from .decision import decide
 from .market_intelligence import market_intelligence
+from .macro_intelligence import macro_state, macro_pressure
+from .regime_intelligence import regime_multiplier, EventMemory
+from .event_intelligence import event_pressure
 
 
 def research_ticker(ticker: str):
     ticker = ticker.upper()
     snapshot = snapshot_ticker(ticker)
     intelligence = market_intelligence(ticker)
+    macro = macro_state("US")
+    events = EventMemory()
 
     insider_net = intelligence["insiders"]["signal"].get("net_shares")
     if insider_net is not None:
@@ -19,11 +24,18 @@ def research_ticker(ticker: str):
         0.45 + 0.15 * min(1, intelligence["evidence_coverage"]),
     )
 
+    snapshot.market_regime = macro["regime"]["name"]
+    snapshot.regime_score = macro["regime"]["score"]
+    snapshot.regime_stress = macro["regime"]["stress"]
+    snapshot.macro_pressure = macro_pressure(macro)
+    snapshot.event_pressure = event_pressure(events, ticker)
     decision = decide(snapshot)
     return {
         "snapshot": snapshot.model_dump(mode="json"),
         "decision": decision.model_dump(mode="json"),
         "market_intelligence": intelligence,
+        "macro": macro,
+        "event_memory": {"calibration": events.calibration(), "upcoming_pressure": snapshot.event_pressure},
     }
 
 
