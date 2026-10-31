@@ -33,3 +33,40 @@ def test_advance_tax_signal_and_calendar(tmp_path):
     memory = AdvanceTaxMemory(str(tmp_path / "tax.json"))
     memory.record(signal)
     assert memory.latest()["corporate_growth"] == 14.0
+
+
+def test_india_regime_uses_india_index_and_volatility_index(monkeypatch):
+    import pandas as pd
+    from tradingdyor.regime_intelligence import classify_market_regime
+    calls = []
+    prices = pd.Series([100.0 + i * 0.1 for i in range(260)])
+    volatility = pd.Series([20.0 for _ in range(260)])
+
+    def fake_series(ticker, period):
+        calls.append(ticker)
+        return volatility if ticker == "^INDIAVIX" else prices
+
+    monkeypatch.setattr("tradingdyor.regime_intelligence._series", fake_series)
+    result = classify_market_regime("INDIA")
+    assert result.name in {"normal", "expansion", "slowdown", "high-stress", "crisis"}
+    assert calls == ["^NSEI", "^INDIAVIX"]
+
+
+def test_company_event_pressure_is_ticker_scoped(tmp_path):
+    from datetime import datetime, timedelta, timezone
+    from tradingdyor.event_intelligence import event_pressure
+
+    memory = EventMemory(tmp_path / "events.json")
+    expected = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    memory.record_forecast(build_forecast("company", "NVDA", expected, 2, 1.0, 1.0, 0.5, "official"))
+    memory.record_forecast(build_forecast("company", "MU", expected, 2, 1.0, 1.0, 0.5, "official"))
+    assert event_pressure(memory, "NVDA") == 1.0
+    assert event_pressure(memory, "MU") == 1.0
+    assert event_pressure(memory, "AMD") == 0.0
+
+
+def test_macro_market_validation_rejects_unknown_market():
+    from tradingdyor.macro_intelligence import macro_state
+    import pytest
+    with pytest.raises(ValueError):
+        macro_state("EUROPE")
