@@ -36,7 +36,8 @@
  <button id="screenRun" type="button">Run screener</button><button id="compareSelected" type="button">Compare selected (0)</button>
 </div>
 <div id="screenStatus" class="small" style="margin-top:10px">Exchange universe is cached for 24 hours. Each page screens at most 12 symbols.</div>
-<div id="screenRows" class="rows" style="margin-top:8px"></div>\n<div id="compareStatus" class="small" style="margin-top:10px"></div><div id="compareRows" class="rows" style="margin-top:8px;overflow-x:auto"></div>
+<div id="screenRows" class="rows" style="margin-top:8px"></div>
+<div id="compareStatus" class="small" style="margin-top:10px"></div><div id="compareRows" class="rows" style="margin-top:8px;overflow-x:auto"></div>
 <div class="row" style="margin-top:10px"><span id="screenExcluded" class="small"></span><button id="screenNext" type="button" hidden>Next page</button></div>
 </section>
 <section class="grid">
@@ -53,7 +54,9 @@
 const $=id=>document.getElementById(id),esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function list(id,items,render){$(id).innerHTML=items?.length?items.map(x=>'<div class="item">'+render(x)+'</div>').join(""):'<div class="small">No verified data returned.</div>'}
 function time(v){if(!v)return "Not provided";const d=new Date(v);return Number.isNaN(d.getTime())?esc(v):d.toLocaleString()}
-let screenOffset=0;\nconst screenCandidates=new Map();\nconst selectedCandidates=new Set();
+let screenOffset=0;
+const screenCandidates=new Map();
+const selectedCandidates=new Set();
 function numericFilter(id){const value=$(id).value.trim();return value===""?null:Number(value)}
 async function runScreener(reset=true){
  if(reset){screenOffset=0;screenCandidates.clear();selectedCandidates.clear();updateCompareCount();$("compareRows").innerHTML="";$("compareStatus").textContent="";}
