@@ -60,13 +60,32 @@ class UniverseProvider:
         response = self.session.get(
             url,
             timeout=self.timeout,
+            stream=True,
             headers={"User-Agent": "TradingDYOR/0.1 research-contact"},
         )
-        response.raise_for_status()
-        payload = getattr(response, "content", b"")
-        if not isinstance(payload, (bytes, bytearray)) or len(payload) > MAX_UNIVERSE_BYTES:
-            raise ValueError("exchange universe response exceeded the configured byte limit")
-        return bytes(payload).decode("utf-8-sig", errors="replace")
+        try:
+            response.raise_for_status()
+            if hasattr(response, "iter_content"):
+                chunks = []
+                total = 0
+                for chunk in response.iter_content(chunk_size=65536):
+                    if not chunk:
+                        continue
+                    total += len(chunk)
+                    if total > MAX_UNIVERSE_BYTES:
+                        raise ValueError("exchange universe response exceeded the configured byte limit")
+                    chunks.append(chunk)
+                payload = b"".join(chunks)
+            else:
+                payload = getattr(response, "content", b"")
+                if not isinstance(payload, (bytes, bytearray)) or len(payload) > MAX_UNIVERSE_BYTES:
+                    raise ValueError("exchange universe response exceeded the configured byte limit")
+                payload = bytes(payload)
+            return payload.decode("utf-8-sig", errors="replace")
+        finally:
+            close = getattr(response, "close", None)
+            if callable(close):
+                close()
 
     @staticmethod
     def _parse_us(nasdaq_text: str, other_text: str) -> list[dict[str, str]]:
