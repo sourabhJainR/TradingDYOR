@@ -65,6 +65,54 @@ def universe(snapshots: list[SecuritySnapshot]):
     if not snapshots: raise HTTPException(400,"at least one snapshot is required")
     return {k:[x.model_dump(mode="json") for x in v] for k,v in rank_universe(snapshots).items()}
 
+@app.get("/research/screener")
+def research_screener(
+    market: str = "US",
+    exchange: str | None = None,
+    offset: int = 0,
+    limit: int = 12,
+    timeout_seconds: float = 12.0,
+    sector: str | None = None,
+    min_market_cap: float | None = None,
+    max_pe: float | None = None,
+    min_revenue_growth: float | None = None,
+    min_earnings_growth: float | None = None,
+    min_roe: float | None = None,
+    max_debt_to_equity: float | None = None,
+    min_momentum_12m: float | None = None,
+    max_volatility_90d: float | None = None,
+    min_dividend_yield: float | None = None,
+    min_average_volume: float | None = None,
+):
+    from .universe import screen_universe
+    filters = {
+        "sector": sector,
+        "min_market_cap": min_market_cap,
+        "max_pe": max_pe,
+        "min_revenue_growth": min_revenue_growth,
+        "min_earnings_growth": min_earnings_growth,
+        "min_roe": min_roe,
+        "max_debt_to_equity": max_debt_to_equity,
+        "min_momentum_12m": min_momentum_12m,
+        "max_volatility_90d": max_volatility_90d,
+        "min_dividend_yield": min_dividend_yield,
+        "min_average_volume": min_average_volume,
+    }
+    try:
+        result = screen_universe(
+            market, exchange=exchange, offset=offset, limit=limit,
+            timeout_seconds=timeout_seconds, filters=filters,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    if result.get("status") == "unavailable":
+        raise HTTPException(503, {
+            "message": "exchange universe unavailable and no usable cache exists",
+            "error_type": result.get("error_type"),
+        })
+    return result
+
+
 @app.get("/research/ticker/{ticker}")
 def ticker(ticker: str): return research_ticker(ticker.upper())
 
