@@ -67,3 +67,23 @@ The news adapter does not infer publication time from GDELT's seen time. Missing
 ## Point-in-time evidence
 
 The SQLite-backed `PointInTimeStore` preserves available, published, observed and retrieved times independently, excludes retrieval-only and future evidence from historical queries, and deduplicates repeated observations. Forward-return measurement defaults to the next trading session after a signal to avoid same-day look-ahead. See `docs/POINT_IN_TIME_EVIDENCE.md`. The one-page brief now persists price/fundamental metrics, SEC filing observations and news stories into the store. `GET /research/history/{ticker}?as_of=...` returns the latest eligible observation per metric. Other research collectors are not yet fully wired to it.
+
+## Macro and event intelligence
+
+The research loop now evaluates the market against long-history regimes rather than treating the current tape as normal by default. It tracks volatility, drawdown, trend and VIX, with explicit slowdown/high-stress/crisis states and historical extreme-event anchors.
+
+Macro context includes fiscal deficit, debt, policy rates, long rates, FX, dollar conditions, credit stress, growth and inflation where a verified data series is available. India-specific fiscal/debt fields remain source-controlled rather than silently substituting US data.
+
+Upcoming events are modeled as dated forecasts across geopolitical, government, macro, sector and company categories. Each forecast can later be observed with the actual event time, surprise and market reaction. Timing error and directional accuracy are then measured for future calibration.
+
+For India, published advance-tax/direct-tax observations are retained as an early tax-flow signal. They are treated as a leading indicator, not as a direct substitute for company earnings, and the platform does not access confidential taxpayer filings.
+
+Relevant endpoints:
+- `/research/macro-intelligence?market=US|INDIA`
+- `/research/regime-history`
+- `/research/events`
+- `/research/events/forecast`
+- `/research/events/{event_id}/observe`
+- `/research/advance-tax`
+
+A stressed regime does not force a blanket HOLD. It reduces the score/confidence of marginal trades while preserving strong positive expected-return opportunities when the underlying evidence supports them.
