@@ -12,7 +12,8 @@ def research_ticker(ticker: str):
     ticker = ticker.upper()
     snapshot = snapshot_ticker(ticker)
     intelligence = market_intelligence(ticker)
-    macro = macro_state("US")
+    market = "INDIA" if ticker.endswith((".NS", ".BO")) else "US"
+    macro = macro_state(market)
     events = EventMemory()
 
     insider_net = intelligence["insiders"]["signal"].get("net_shares")
