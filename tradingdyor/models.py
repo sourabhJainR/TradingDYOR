@@ -13,8 +13,13 @@ class Evidence(BaseModel):
 class SecuritySnapshot(BaseModel):
     ticker: str
     as_of: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    price_as_of: datetime | None = None
+    currency: str | None = None
     price: float | None = None
     market_cap: float | None = None
+    average_volume: float | None = None
+    dividend_yield: float | None = None
     pe: float | None = None
     ps: float | None = None
     revenue_growth: float | None = None
@@ -32,7 +37,14 @@ class SecuritySnapshot(BaseModel):
     regime_score: float | None = None
     regime_stress: float | None = None
     macro_pressure: float | None = None
+    macro_status: str = "unavailable"
     event_pressure: float | None = None
+    event_status: str = "unavailable"
+    news_sentiment_status: str = "unscored"
+    news_sentiment_score: float | None = None
+    news_sentiment_confidence: float = 0.0
+    news_sample_count: int = 0
+    news_publisher_count: int = 0
     expected_return_edge: float | None = None
     expected_risk: float | None = None
     evidence_count: int = 0

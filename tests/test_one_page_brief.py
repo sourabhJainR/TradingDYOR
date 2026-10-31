@@ -10,7 +10,8 @@ def test_one_page_brief_combines_company_recommendation_news_and_provenance(monk
         "fundamentals": {"status": "completed", "evidence_count": 3, "result": {
             "snapshot": {
                 "ticker": "EXAMPLE", "company_name": "Example Corp", "sector": "Technology",
-                "price": 123.45, "market_cap": 1000000, "as_of": "2026-10-30T12:00:00+00:00",
+                "price": 123.45, "market_cap": 1000000, "as_of": "2026-10-30T12:05:00+00:00",
+                "price_as_of": "2026-10-30T12:00:00+00:00", "retrieved_at": "2026-10-30T12:05:00+00:00",
             },
         }},
         "filings": {"status": "failed", "evidence_count": 0, "result": None},
@@ -45,13 +46,13 @@ def test_one_page_brief_combines_company_recommendation_news_and_provenance(monk
     assert data["news"]["sentiment"]["status"] == "unscored"
     assert data["evidence"]["sources"][-1]["name"] == "Google News RSS"
     assert data["point_in_time"]["status"] == "partial"
-    assert data["point_in_time"]["eligible_observations_added"] == 2
+    assert data["point_in_time"]["eligible_observations_added"] == 1
     assert data["point_in_time"]["observations_added"] == 3
     history = TestClient(app).get("/research/history/EXAMPLE", params={"as_of": "2026-10-31T00:00:00+00:00"})
     assert history.status_code == 200
     history_data = history.json()
-    assert history_data["observation_count"] == 2
-    assert {item["metric"] for item in history_data["observations"]} == {"price", "market_cap"}
+    assert history_data["observation_count"] == 1
+    assert {item["metric"] for item in history_data["observations"]} == {"price"}
     assert data["research"]["status"] == "partial"
     assert next(x for x in data["evidence"]["sources"] if x["name"] == "Regulatory filings")["status"] == "failed"
     assert data["advisory_only"] is True
@@ -109,3 +110,158 @@ def test_news_api_selects_india_sources_for_indian_ticker(monkeypatch):
     assert response.status_code == 200
     assert seen["market"] == "INDIA"
     assert seen["ticker"] == "RELIANCE.NS"
+
+
+def test_one_page_brief_uses_graph_news_and_tracked_event_evidence(monkeypatch, tmp_path):
+    monkeypatch.setenv("TRADINGDYOR_PIT_DB", str(tmp_path / "graph-brief.sqlite"))
+    graph = {"nodes": {
+        "fundamentals": {"status": "completed", "evidence_count": 2, "result": {
+            "snapshot": {
+                "ticker": "EXAMPLE", "company_name": "Example Corp", "sector": "Technology",
+                "price": 123.45, "currency": "USD", "price_as_of": "2026-10-30T12:00:00+00:00",
+                "retrieved_at": "2026-10-30T12:05:00+00:00", "market_cap": 1000000,
+            },
+        }},
+        "news": {"status": "completed", "evidence_count": 1, "result": {
+            "status": "partial",
+            "news": {
+                "status": "partial", "retrieved_at": "2026-10-30T12:06:00+00:00",
+                "providers": [{"name": "GDELT", "status": "unavailable"},
+                              {"name": "Google News RSS", "status": "available"}],
+                "articles": [{"story_id": "story-1", "title": "Example update",
+                              "url": "https://news.example/story", "publisher": "Publisher",
+                              "publish_time": "2026-10-30T12:00:00+00:00",
+                              "source_providers": ["Google News RSS"]}],
+                "sentiment": {"status": "unscored", "sample_count": 1, "publisher_count": 1},
+            },
+        }},
+        "events": {"status": "completed", "evidence_count": 1, "result": {
+            "status": "available", "event_pressure": 0.25,
+            "events": [{"event_id": "evt-1", "entity": "EXAMPLE", "category": "company",
+                        "expected_at": "2026-11-15T12:00:00+00:00",
+                        "affected_metrics": ["revenue_growth"],
+                        "thesis_impacts": ["guidance uncertainty"], "source": "issuer"}],
+        }},
+        "filings": {"status": "completed", "evidence_count": 0, "result": {"filings": []}},
+    }}
+    decision = {
+        "ticker": "EXAMPLE", "action": "HOLD", "score": 0.1, "confidence": 0.4,
+        "evidence_coverage": 0.5, "strategy_agreement": 0.5,
+        "thesis": "Insufficient evidence.", "key_reasons": [], "risks": [],
+        "invalidation": [], "research_status": "partial", "missing_research_tasks": [],
+    }
+    run = SimpleNamespace(graph=graph, decision=decision, evidence_yield=0.5,
+                          duration_ms=100.0, contradictions=[])
+    monkeypatch.setattr("tradingdyor.api.ResearchOrchestrator",
+                        lambda _fabric: SimpleNamespace(run=lambda _ticker, _collectors: run))
+    monkeypatch.setattr("tradingdyor.api.fetch_company_news",
+                        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("news graph must be reused")))
+
+    data = TestClient(app).get("/research/brief/EXAMPLE").json()
+    assert data["news"]["status"] == "partial"
+    assert data["news"]["articles"][0]["story_id"] == "story-1"
+    assert data["company"]["currency"] == "USD"
+    assert data["company"]["price_as_of"] == "2026-10-30T12:00:00+00:00"
+    assert data["events"]["event_pressure"] == 0.25
+    assert data["events"]["tracked"][0]["affected_metrics"] == ["revenue_growth"]
+    assert data["events"]["tracked"][0]["thesis_impacts"] == ["guidance uncertainty"]
+
+
+def test_event_forecast_persists_metric_and_thesis_links(monkeypatch, tmp_path):
+    monkeypatch.setenv("TRADINGDYOR_EVENT_DB", str(tmp_path / "events.json"))
+    client = TestClient(app)
+    response = client.post("/research/events/forecast", json={
+        "category": "company",
+        "entity": "EXAMPLE",
+        "expected_at": "2026-11-15T12:00:00+00:00",
+        "window_days": 2,
+        "importance": 0.8,
+        "probability": 0.7,
+        "expected_direction": -0.4,
+        "source": "issuer filing",
+        "affected_metrics": ["revenue_growth", "free_cash_flow"],
+        "thesis_impacts": ["guidance may be reduced"],
+    })
+    assert response.status_code == 200
+    event = response.json()
+    assert event["affected_metrics"] == ["revenue_growth", "free_cash_flow"]
+    assert event["thesis_impacts"] == ["guidance may be reduced"]
+    listed = client.get("/research/events").json()
+    assert listed["events"][0]["event_id"] == event["event_id"]
+
+
+def test_screener_api_passes_market_exchange_and_numeric_filters(monkeypatch):
+    seen = {}
+    def fake_screen(market, **kwargs):
+        seen["market"] = market
+        seen.update(kwargs)
+        return {"status": "available", "market": market, "included": [], "excluded": []}
+
+    monkeypatch.setattr("tradingdyor.universe.screen_universe", fake_screen)
+    response = TestClient(app).get(
+        "/research/screener?market=INDIA&exchange=NSE&limit=6&min_market_cap=1000000000&max_pe=25"
+    )
+    assert response.status_code == 200
+    assert seen["market"] == "INDIA"
+    assert seen["exchange"] == "NSE"
+    assert seen["limit"] == 6
+    assert seen["filters"]["min_market_cap"] == 1_000_000_000
+    assert seen["filters"]["max_pe"] == 25
+
+
+def test_screener_api_rejects_invalid_market():
+    response = TestClient(app).get("/research/screener?market=EUROPE")
+    assert response.status_code == 400
+
+
+def test_event_api_reports_corrupt_history_and_refuses_overwrite(monkeypatch, tmp_path):
+    path = tmp_path / "events.json"
+    path.write_text("{corrupt", encoding="utf-8")
+    monkeypatch.setenv("TRADINGDYOR_EVENT_DB", str(path))
+    client = TestClient(app)
+    listed = client.get("/research/events")
+    assert listed.status_code == 200
+    assert listed.json()["status"] == "unavailable"
+    assert listed.json()["calibration"]["status"] == "unavailable"
+    response = client.post("/research/events/forecast", json={
+        "category": "company",
+        "entity": "EXAMPLE",
+        "expected_at": "2026-11-15T12:00:00+00:00",
+        "window_days": 2,
+        "importance": 0.8,
+        "probability": 0.7,
+        "expected_direction": -0.4,
+        "source": "issuer filing",
+    })
+    assert response.status_code == 503
+    assert path.read_text(encoding="utf-8") == "{corrupt"
+
+
+def test_one_page_brief_passes_requested_news_window_to_graph_collector(monkeypatch, tmp_path):
+    monkeypatch.setenv("TRADINGDYOR_PIT_DB", str(tmp_path / "timespan.sqlite"))
+    seen = {}
+
+    def fake_news(ticker, *, timespan, market):
+        seen.update({"ticker": ticker, "timespan": timespan, "market": market})
+        return {
+            "status": "empty", "providers": [], "articles": [],
+            "retrieved_at": "2026-10-31T00:00:00+00:00",
+            "sentiment": {"status": "unscored", "sample_count": 0, "publisher_count": 0},
+        }
+
+    monkeypatch.setattr("tradingdyor.research_collectors.fetch_company_news", fake_news)
+
+    def fake_run(ticker, collectors):
+        news_result = collectors["news"](ticker)
+        return SimpleNamespace(
+            graph={"nodes": {"news": {"status": "completed", "result": {
+                "status": "empty", "news": news_result,
+            }}}},
+            decision=None, evidence_yield=0.0, duration_ms=1.0, contradictions=[],
+        )
+
+    monkeypatch.setattr("tradingdyor.api.ResearchOrchestrator",
+                        lambda _fabric: SimpleNamespace(run=fake_run))
+    response = TestClient(app).get("/research/brief/ABC?timespan=30d")
+    assert response.status_code == 200
+    assert seen == {"ticker": "ABC", "timespan": "30d", "market": "US"}

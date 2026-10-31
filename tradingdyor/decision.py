@@ -12,6 +12,18 @@ def decide(s: SecuritySnapshot, evidence_coverage: float | None = None, provenan
     coverage=min(1.0, max(0.0, s.evidence_coverage if evidence_coverage is None else evidence_coverage))
     contested=sum(1 for x in (provenance or {}).get("reconciled", []) if x.get("status") == "contested")
     confidence=max(0.0,min(1.0,0.55*agreement+0.45*coverage-0.05*min(5,contested)-0.12*event_pressure-0.08*(s.regime_stress or 0.0)-0.10*(s.macro_pressure or 0.0)))
+    news_status = s.news_sentiment_status
+    news_score = s.news_sentiment_score
+    news_confidence = max(0.0, min(1.0, s.news_sentiment_confidence or 0.0))
+    news_disagrees = (
+        news_status == "scored" and news_score is not None
+        and abs(raw_score) >= 0.05
+        and ((raw_score > 0 and news_score < 0) or (raw_score < 0 and news_score > 0))
+    )
+    if news_disagrees:
+        # News tone is contextual evidence only. It can lower confidence when
+        # it conflicts with fundamentals, but it never changes the directional score.
+        confidence = max(0.0, confidence - 0.05 * news_confidence)
     if coverage < 0.40:
         action="HOLD"
     elif score >= 0.25:
@@ -21,12 +33,30 @@ def decide(s: SecuritySnapshot, evidence_coverage: float | None = None, provenan
     else:
         action="HOLD"
     reasons=[f"{r.name}: {r.score:+.2f}" for r in results]
-    if s.market_regime:
+    if s.macro_status == "available" and s.market_regime:
         reasons.append(f"market regime: {s.market_regime}, stress={s.regime_stress or 0.0:.2f}")
-    if event_pressure:
-        reasons.append(f"upcoming-event pressure: {event_pressure:.2f}")
+    else:
+        reasons.append("macro regime unavailable; no macro adjustment applied")
+    if s.event_status == "available":
+        reasons.append(f"tracked event pressure: {event_pressure:.2f}")
+    elif s.event_status == "empty":
+        reasons.append("no tracked event forecasts; event risk remains unknown")
+    else:
+        reasons.append("event forecast data unavailable; no event adjustment applied")
     if contested:
         reasons.append(f"{contested} claim conflict(s) require review")
+    if news_status == "scored" and news_score is not None:
+        reasons.append(
+            f"news tone: {news_score:+.2f} across {s.news_sample_count} articles/"
+            f"{s.news_publisher_count} publishers; context only"
+        )
+        if news_disagrees:
+            reasons.append("news tone conflicts with the fundamental signal; confidence reduced")
+    else:
+        reasons.append(
+            f"news sentiment unscored ({s.news_sample_count} articles/"
+            f"{s.news_publisher_count} publishers); no sentiment adjustment"
+        )
     direction = "upside" if action == "BUY" else "downside" if action == "SELL" else "limited directional edge"
     thesis=f"{action} thesis: the research signals imply {direction} with ensemble score {score:+.2f} and confidence {confidence:.2f}."
     return Decision(

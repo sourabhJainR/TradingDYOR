@@ -1,8 +1,21 @@
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
+import multiprocessing
 
 from tradingdyor.advance_tax import from_official_observation, tax_calendar, AdvanceTaxMemory
 from tradingdyor.event_intelligence import build_forecast
 from tradingdyor.regime_intelligence import EventMemory, regime_multiplier
+
+
+
+def _record_event_from_process(path, entity):
+    memory = EventMemory(path)
+    event = build_forecast(
+        "company", entity, "2026-11-15T12:00:00+00:00",
+        2, 0.7, 0.6, 0.2, "issuer filing",
+    )
+    memory.record_forecast(event)
+    return event.event_id
 
 
 def test_event_forecast_is_time_bound_and_persisted(tmp_path):
@@ -70,3 +83,59 @@ def test_macro_market_validation_rejects_unknown_market():
     import pytest
     with pytest.raises(ValueError):
         macro_state("EUROPE")
+
+
+def test_event_forecast_rejects_naive_time_and_malformed_metric_links():
+    import pytest
+    with pytest.raises(ValueError, match="explicit timezone"):
+        build_forecast("company", "ABC", "2026-11-01T12:00:00", 1, 0.5, 0.5, 0.0, "issuer")
+    with pytest.raises(ValueError, match="must be a list"):
+        build_forecast("company", "ABC", "2026-11-01T12:00:00+00:00", 1, 0.5, 0.5, 0.0, "issuer", "revenue_growth")
+
+
+def test_corrupt_event_memory_is_unavailable_and_not_overwritten(tmp_path):
+    import pytest
+    path = tmp_path / "corrupt-events.json"
+    original = b"{not-json"
+    path.write_bytes(original)
+    memory = EventMemory(path)
+    assert memory.load_status == "unavailable"
+    with pytest.raises(RuntimeError):
+        memory.record_forecast(build_forecast(
+            "company", "ABC", "2026-11-01T12:00:00+00:00", 1, 0.5, 0.5, 0.0, "issuer",
+        ))
+    assert path.read_bytes() == original
+
+
+def test_concurrent_processes_do_not_lose_event_forecasts(tmp_path):
+    path = str(tmp_path / "concurrent-events.json")
+    with ProcessPoolExecutor(
+        max_workers=2,
+        mp_context=multiprocessing.get_context("spawn"),
+    ) as pool:
+        ids = list(pool.map(_record_event_from_process, [path, path], ["ABC", "XYZ"]))
+    memory = EventMemory(path)
+    assert memory.load_status == "available"
+    assert {event.event_id for event in memory.events} == set(ids)
+    assert {event.entity for event in memory.events} == {"ABC", "XYZ"}
+
+
+def test_event_memory_lock_has_a_bounded_wait(tmp_path):
+    import pytest
+    from tradingdyor.regime_intelligence import _exclusive_event_file_lock
+
+    path = tmp_path / "locked-events.json"
+    with _exclusive_event_file_lock(path):
+        with pytest.raises(TimeoutError, match="lock deadline"):
+            with _exclusive_event_file_lock(path, timeout_seconds=0.1):
+                pass
+
+
+def test_oversized_event_memory_is_unavailable(tmp_path):
+    from tradingdyor.regime_intelligence import MAX_EVENT_MEMORY_BYTES
+
+    path = tmp_path / "oversized-events.json"
+    path.write_bytes(b"x" * (MAX_EVENT_MEMORY_BYTES + 1))
+    memory = EventMemory(path)
+    assert memory.load_status == "unavailable"
+    assert memory.load_error_type == "EventMemoryTooLarge"

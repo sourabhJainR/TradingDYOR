@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TradingDYOR | Stock Brief</title>
 <style>
-:root{font-family:Inter,system-ui,sans-serif;color:#182235;background:#f4f6fa}*{box-sizing:border-box}body{margin:0}main{max-width:1120px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.brand{font-weight:800;font-size:24px}.muted{color:#667085}.small{font-size:12px;color:#667085}.card{background:#fff;border:1px solid #e2e6ee;border-radius:12px;padding:16px}.hero{display:grid;grid-template-columns:2fr repeat(3,1fr);gap:12px;margin:18px 0}.metric{font-size:25px;font-weight:800;margin-top:5px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.pill{display:inline-block;padding:4px 8px;border-radius:99px;background:#edf0f5;font-size:12px;font-weight:700}.rows{display:grid;gap:9px}.item{border-bottom:1px solid #edf0f4;padding:8px 0}.item:last-child{border:0}.row{display:flex;justify-content:space-between;gap:12px}.score{font-size:30px;font-weight:800}.good{color:#16794b}.bad{color:#b42318}a{color:#2459a6;overflow-wrap:anywhere}h2{font-size:16px;margin:0 0 12px}h1{font-size:26px;margin:4px 0}.wide{grid-column:1/-1}.error{color:#b42318}@media(max-width:760px){main{padding:12px}.hero{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+:root{font-family:Inter,system-ui,sans-serif;color:#182235;background:#f4f6fa}*{box-sizing:border-box}body{margin:0}main{max-width:1120px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.brand{font-weight:800;font-size:24px}.muted{color:#667085}.small{font-size:12px;color:#667085}.card{background:#fff;border:1px solid #e2e6ee;border-radius:12px;padding:16px}.hero{display:grid;grid-template-columns:2fr repeat(3,1fr);gap:12px;margin:18px 0}.metric{font-size:25px;font-weight:800;margin-top:5px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.pill{display:inline-block;padding:4px 8px;border-radius:99px;background:#edf0f5;font-size:12px;font-weight:700}.rows{display:grid;gap:9px}.item{border-bottom:1px solid #edf0f4;padding:8px 0}.item:last-child{border:0}.row{display:flex;justify-content:space-between;gap:12px}.score{font-size:30px;font-weight:800}.good{color:#16794b}.bad{color:#b42318}a{color:#2459a6;overflow-wrap:anywhere}input,select{max-width:100%;padding:7px;border:1px solid #cbd2df;border-radius:6px}button{padding:8px 12px;border:0;border-radius:6px;background:#2459a6;color:white;cursor:pointer}.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.filter{display:grid;gap:3px;min-width:115px}.candidate{display:grid;grid-template-columns:1.3fr repeat(3,1fr);gap:8px;padding:10px 0;border-bottom:1px solid #edf0f4}.candidate:last-child{border:0}@media(max-width:760px){.candidate{grid-template-columns:1fr 1fr}}h2{font-size:16px;margin:0 0 12px}h1{font-size:26px;margin:4px 0}.wide{grid-column:1/-1}.error{color:#b42318}@media(max-width:760px){main{padding:12px}.hero{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
 </style>
 </head>
 <body><main>
@@ -16,6 +16,28 @@
 <div class="card"><div class="muted">Price</div><div id="price" class="metric">—</div><div id="marketcap" class="small"></div></div>
 <div class="card"><div class="muted">Recommendation</div><div id="action" class="metric">—</div><div id="confidence" class="small"></div></div>
 <div class="card"><div class="muted">Evidence coverage</div><div id="coverage" class="metric">—</div><div class="small">Not a probability of return</div></div>
+</section>
+<section class="card wide" style="margin:12px 0">
+<h2>US and India market screener</h2>
+<div class="filters">
+ <label class="filter"><span class="small">Market</span><select id="screenMarket"><option value="US">United States</option><option value="INDIA">India</option></select></label>
+ <label class="filter"><span class="small">Exchange</span><select id="screenExchange"><option value="">All supported</option><option value="NASDAQ">NASDAQ</option><option value="NYSE">NYSE</option><option value="NYSE_AMERICAN">NYSE American</option><option value="NSE">NSE</option></select></label>
+ <label class="filter"><span class="small">Min market cap (currency units)</span><input id="screenMinCap" type="number" min="0" placeholder="Any"></label>
+ <label class="filter"><span class="small">Max P/E</span><input id="screenMaxPe" type="number" min="0" step="0.1" placeholder="Any"></label>
+ <label class="filter"><span class="small">Min revenue growth (e.g. 0.10)</span><input id="screenMinGrowth" type="number" step="0.01" placeholder="Any"></label>
+ <label class="filter"><span class="small">Min ROE (e.g. 0.15)</span><input id="screenMinRoe" type="number" step="0.01" placeholder="Any"></label>
+ <label class="filter"><span class="small">Max debt/equity</span><input id="screenMaxDebt" type="number" min="0" step="0.1" placeholder="Any"></label>
+ <label class="filter"><span class="small">Min earnings growth (decimal)</span><input id="screenMinEarnings" type="number" step="0.01" placeholder="Any"></label>
+ <label class="filter"><span class="small">Min momentum (decimal)</span><input id="screenMinMomentum" type="number" step="0.01" placeholder="Any"></label>
+ <label class="filter"><span class="small">Max volatility (decimal)</span><input id="screenMaxVolatility" type="number" step="0.01" placeholder="Any"></label>
+ <label class="filter"><span class="small">Min dividend yield (decimal)</span><input id="screenMinDividend" type="number" step="0.01" placeholder="Any"></label>
+ <label class="filter"><span class="small">Min average volume</span><input id="screenMinVolume" type="number" min="0" placeholder="Any"></label>
+ <label class="filter"><span class="small">Sector contains</span><input id="screenSector" type="text" placeholder="Any"></label>
+ <button id="screenRun" type="button">Run screener</button>
+</div>
+<div id="screenStatus" class="small" style="margin-top:10px">Exchange universe is cached for 24 hours. Each page screens at most 12 symbols.</div>
+<div id="screenRows" class="rows" style="margin-top:8px"></div>
+<div class="row" style="margin-top:10px"><span id="screenExcluded" class="small"></span><button id="screenNext" type="button" hidden>Next page</button></div>
 </section>
 <section class="grid">
 <div class="card"><h2>Investment view</h2><div id="thesis"></div><div class="small" id="score" style="margin-top:8px"></div><h2 style="margin-top:16px">Key reasons</h2><div id="reasons" class="rows"></div></div>
@@ -31,6 +53,36 @@
 const $=id=>document.getElementById(id),esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function list(id,items,render){$(id).innerHTML=items?.length?items.map(x=>'<div class="item">'+render(x)+'</div>').join(""):'<div class="small">No verified data returned.</div>'}
 function time(v){if(!v)return "Not provided";const d=new Date(v);return Number.isNaN(d.getTime())?esc(v):d.toLocaleString()}
+let screenOffset=0;
+function numericFilter(id){const value=$(id).value.trim();return value===""?null:Number(value)}
+async function runScreener(reset=true){
+ if(reset)screenOffset=0;
+ const market=$("screenMarket").value,exchange=$("screenExchange").value;
+ if(market==="INDIA"&&exchange&&exchange!=="NSE"){$("screenStatus").textContent="Only NSE is supported for India.";return}
+ if(market==="US"&&exchange==="NSE"){$("screenStatus").textContent="NSE is an India exchange.";return}
+ const params=new URLSearchParams({market,offset:String(screenOffset),limit:"12",timeout_seconds:"12"});
+ if(exchange)params.set("exchange",exchange);
+ const sector=$("screenSector").value.trim();if(sector)params.set("sector",sector);
+ const filters=[["min_market_cap","screenMinCap"],["max_pe","screenMaxPe"],["min_revenue_growth","screenMinGrowth"],["min_roe","screenMinRoe"],["max_debt_to_equity","screenMaxDebt"],["min_earnings_growth","screenMinEarnings"],["min_momentum_12m","screenMinMomentum"],["max_volatility_90d","screenMaxVolatility"],["min_dividend_yield","screenMinDividend"],["min_average_volume","screenMinVolume"]];
+ for(const [name,id] of filters){const value=numericFilter(id);if(value!==null&&!Number.isNaN(value))params.set(name,String(value))}
+ $("screenStatus").textContent="Loading exchange universe and bounded company snapshots...";
+ $("screenRows").innerHTML="";$("screenNext").hidden=true;
+ try{
+  const response=await fetch("/research/screener?"+params.toString());
+  const data=await response.json();
+  if(!response.ok)throw Error(data.detail?.message||"Screener request failed ("+response.status+")");
+  const rows=data.included||[],excluded=data.excluded||[];
+  $("screenStatus").textContent="Universe "+esc(data.universe_status)+" · cache "+esc(data.universe_cache_status)+" · "+esc(data.market)+" · "+esc(data.exchange)+" · "+esc(data.screened_count)+" screened of "+esc(data.page_size)+" · fetched "+time(data.universe_fetched_at);
+  $("screenExcluded").textContent=excluded.length+" excluded or unavailable; "+(data.timed_out||0)+" timed out; "+(data.capacity_limited||0)+" not started.";
+  list("screenRows",rows,x=>{
+   const s=x.snapshot||{},fmt=(v,p="")=>v==null?"Unavailable":p==="pct"?(Number(v)*100).toFixed(1)+"%":Number(v).toLocaleString(undefined,{maximumFractionDigits:2});
+   return '<div class="candidate"><div><strong>'+esc(x.ticker)+'</strong><div class="small">'+esc(x.name)+'</div><a href="/brief/'+encodeURIComponent(x.ticker)+'">Open brief</a></div><div class="small">Price '+fmt(s.price)+' '+esc(s.currency||"")+'<br>Market cap '+fmt(s.market_cap)+'</div><div class="small">P/E '+fmt(s.pe)+'<br>Revenue growth '+fmt(s.revenue_growth,"pct")+'<br>ROE '+fmt(s.roe,"pct")+'</div><div class="small">Debt/equity '+fmt(s.debt_to_equity)+'<br>Momentum '+fmt(s.momentum_12m,"pct")+'<br>Volatility '+fmt(s.volatility_90d,"pct")+'</div></div>';
+  });
+  if(!rows.length)$("screenRows").innerHTML='<div class="small">No candidates met the selected filters on this page. Review excluded metrics or move to the next page.</div>';
+  screenOffset=data.next_offset||screenOffset;
+  $("screenNext").hidden=screenOffset>=Number(data.candidate_count||0);
+ }catch(error){$("screenStatus").innerHTML='<span class="error">'+esc(error.message)+'</span>'}
+}
 async function load(){
  const t=$("ticker").value.trim().toUpperCase();if(!t)return;
  history.replaceState(null,"","/brief/"+encodeURIComponent(t));
@@ -40,7 +92,7 @@ async function load(){
   if(!response.ok)throw Error("Research request failed ("+response.status+")");
   const d=await response.json(),c=d.company||{},r=d.recommendation||{},n=d.news||{},s=n.sentiment||{};
   $("company").textContent=c.name||d.ticker;$("sector").textContent=c.sector||"Sector unavailable";
-  $("asof").textContent="Market data as of "+time(c.as_of);
+  $("asof").textContent="Price as of "+time(c.price_as_of)+" · Retrieved "+time(c.retrieved_at);
   $("price").textContent=c.price==null?"Unavailable":Number(c.price).toLocaleString(undefined,{maximumFractionDigits:2})+" "+(c.currency||"");
   $("marketcap").textContent=c.market_cap==null?"Market cap unavailable":"Market cap "+Number(c.market_cap).toLocaleString()+" "+(c.currency||"");
   $("action").textContent=r.action||"HOLD";$("confidence").textContent="Model confidence "+Math.round(Number(r.confidence||0)*100)+"%";
@@ -61,17 +113,28 @@ async function load(){
   $("sentimentMeta").textContent=(s.method||"No sentiment method")+". Sample "+(s.sample_count||0)+" articles across "+(s.publisher_count||0)+" publishers. Confidence "+Math.round(Number(s.confidence||0)*100)+"%. "+(s.reason||"")+" Sentiment is contextual and does not override fundamentals.";
   list("newsRows",n.articles||[],x=>{const sourceTime=x.publish_time?"Published "+time(x.publish_time):x.seen_at?"Seen "+time(x.seen_at):"Source time unavailable";return '<div class="row"><strong>'+esc(x.event_type)+'</strong><span class="small">'+sourceTime+'</span></div><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.title)+'</a><div class="small">'+esc(x.publisher)+' · '+esc((x.source_providers||[]).join(", "))+' · tone '+(x.tone==null?"unavailable":Number(x.tone).toFixed(2))+'</div>'});
   const ev=d.events||{},fil=ev.filings||{},earn=ev.earnings||{},ins=ev.insiders||{},ca=ev.corporate_actions||{};
+  const tracked=(ev.tracked||[]).map(x=>({
+   name:(x.entity||"Market event")+" · "+(x.category||"event"),
+   value:time(x.expected_at),
+   status:x.observed_at?"observed":"forecast",
+   metrics:(x.affected_metrics||[]).join(", "),
+   impacts:(x.thesis_impacts||[]).join("; "),
+   source:x.source
+  }));
   list("events",[
    {name:"Recent regulatory filings",value:fil.count??0,status:fil.count?"available":"empty"},
    {name:"Earnings observations",value:earn.observations?.length??0,status:earn.observations?.length?"available":"empty"},
    {name:"Insider observations",value:ins.observations?.length??0,status:ins.observations?.length?"available":"empty"},
-   {name:"Corporate actions",value:ca.count??0,status:ca.count?"available":"empty"}
-  ],x=>'<strong>'+esc(x.name)+'</strong><div class="small">'+esc(x.value)+' · '+esc(x.status)+'</div>');
+   {name:"Corporate actions",value:ca.count??0,status:ca.count?"available":"empty"},
+   {name:"Macro context",value:ev.macro_status||"unknown",status:ev.macro_status||"unknown"},
+   {name:"Upcoming event pressure",value:ev.event_pressure==null?"Unknown":Number(ev.event_pressure).toFixed(2),status:ev.event_status||"unknown"},
+   ...tracked
+  ],x=>'<strong>'+esc(x.name)+'</strong><div class="small">'+esc(x.value)+' · '+esc(x.status)+'</div>'+(x.metrics?'<div class="small">Affected metrics: '+esc(x.metrics)+'</div>':'')+(x.impacts?'<div class="small">Thesis impact: '+esc(x.impacts)+'</div>':'')+(x.source?'<div class="small">Source: '+esc(x.source)+'</div>':''));
   list("risks",[...(r.risks||[]).map(x=>({kind:"Risk",text:x})),...(r.invalidation||[]).map(x=>({kind:"Invalidation",text:x}))],x=>'<strong>'+esc(x.kind)+'</strong><div>'+esc(x.text)+'</div>');
   list("sources",d.evidence?.sources||[],x=>'<div class="row"><strong>'+esc(x.name)+'</strong><span class="pill">'+esc(x.status)+'</span></div><div class="small">Retrieved '+time(x.retrieved_at)+' · as of '+time(x.as_of)+'</div>');
   $("status").textContent="Research: "+esc(d.research?.status||"unknown")+". Brief refreshed "+new Date().toLocaleString()+". News provider: "+esc(n.status||"unknown")+".";
  }catch(e){$("status").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
 }
 const path=decodeURIComponent(location.pathname.split("/").pop()||"");$("ticker").value=path==="brief"?"NVDA":path;
-$("load").onclick=load;$("ticker").addEventListener("keydown",e=>{if(e.key==="Enter")load()});load();
+$("load").onclick=load;$("ticker").addEventListener("keydown",e=>{if(e.key==="Enter")load()});$("screenRun").onclick=()=>runScreener(true);$("screenNext").onclick=()=>runScreener(false);$("screenMarket").addEventListener("change",()=>{$("screenExchange").value=""});load();
 </script></body></html>
