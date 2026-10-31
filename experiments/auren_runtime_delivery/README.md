@@ -15,7 +15,7 @@ The test workload represents a multi-ticker research batch with filings, news, e
 
 ## Pinned AUREN source
 
-The workflow checks out AUREN at `f075961906c50a048a1e071a9c371f5c13e08ca9`, the candidate dashboard-host implementation in AUREN PR #1155. The tests import the actual `portable.dashboard_server`, `portable.response_delivery_artifacts`, `portable.response_delivery`, and `portable.progress_journal` modules directly from that checkout. Update the pin to the verified merge commit after PR #1155 lands.
+The workflow checks out AUREN at verified main commit `123fa8e0d1a68f0fcca88208b76c7149e0e812c0`, which includes merged PR #1155. The tests import the actual `portable.dashboard_server`, `portable.response_delivery_artifacts`, `portable.response_delivery`, and `portable.progress_journal` modules directly from that checkout.
 
 ## Run
 
