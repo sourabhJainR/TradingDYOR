@@ -102,3 +102,72 @@ def test_thin_news_sample_does_not_change_fundamental_decision():
     assert thin.score == baseline.score
     assert thin.confidence == baseline.confidence
     assert any("news sentiment unscored" in reason for reason in thin.key_reasons)
+
+
+def test_snapshot_separates_market_observation_time_from_retrieval_time(monkeypatch):
+    import pandas as pd
+    from tradingdyor.market_data import snapshot_ticker
+
+    index = pd.date_range("2026-10-28", periods=260, freq="D", tz="UTC")
+    close = pd.Series([100.0 + index_value for index_value in range(260)], index=index)
+
+    class FakeTicker:
+        info = {
+            "currency": "INR", "marketCap": 10_000_000,
+            "averageVolume": 100_000, "dividendYield": 0.01,
+            "trailingPE": 18.0, "longName": "Example Limited",
+        }
+
+        def history(self, **_kwargs):
+            return pd.DataFrame({"Close": close})
+
+    monkeypatch.setattr("tradingdyor.market_data.yf.Ticker", lambda _ticker: FakeTicker())
+    snapshot = snapshot_ticker("EXAMPLE.NS")
+    assert snapshot.price_as_of == index[-1].to_pydatetime()
+    assert snapshot.retrieved_at >= snapshot.price_as_of
+    assert snapshot.as_of == snapshot.retrieved_at
+    assert snapshot.currency == "INR"
+    assert snapshot.average_volume == 100_000
+    assert snapshot.dividend_yield == 0.01
+
+
+def test_news_collector_preserves_partial_provider_status_and_source_times(monkeypatch):
+    from tradingdyor import research_collectors
+
+    seen = {}
+    def fake_news(ticker, **kwargs):
+        seen["ticker"] = ticker
+        seen.update(kwargs)
+        return {
+            "status": "partial", "article_count": 1,
+            "retrieved_at": "2026-10-31T00:00:00+00:00",
+            "articles": [{
+                "story_id": "story-1", "title": "Issuer event",
+                "publisher": "Publisher", "url": "https://publisher.example/story",
+                "publish_time": "2026-10-30T12:00:00+00:00",
+                "seen_at": "2026-10-30T12:01:00+00:00",
+            }],
+            "sentiment": {"status": "unscored", "sample_count": 1, "publisher_count": 1},
+        }
+
+    monkeypatch.setattr(research_collectors, "fetch_company_news", fake_news)
+    result = research_collectors.news("RELIANCE.NS")
+    assert seen["market"] == "INDIA"
+    assert result["status"] == "partial"
+    assert result["evidence_count"] == 1
+    assert result["claims"][0]["available_at"] == "2026-10-30T12:00:00+00:00"
+    assert result["claims"][0]["observed_at"] == "2026-10-30T12:01:00+00:00"
+
+
+def test_macro_collector_uses_ticker_market(monkeypatch):
+    from tradingdyor import research_collectors
+
+    seen = []
+    monkeypatch.setattr(research_collectors, "macro_state", lambda market: seen.append(market) or {
+        "regime": {"name": "normal", "score": 0.2, "stress": 0.1},
+    })
+    monkeypatch.setattr(research_collectors, "macro_pressure", lambda _state: 0.15)
+    result = research_collectors.macro("RELIANCE.NS")
+    assert seen == ["INDIA"]
+    assert result["macro_pressure"] == 0.15
+    assert result["status"] == "available"
