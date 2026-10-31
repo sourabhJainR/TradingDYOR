@@ -126,7 +126,8 @@ async function load(){
    {name:"Earnings observations",value:earn.observations?.length??0,status:earn.observations?.length?"available":"empty"},
    {name:"Insider observations",value:ins.observations?.length??0,status:ins.observations?.length?"available":"empty"},
    {name:"Corporate actions",value:ca.count??0,status:ca.count?"available":"empty"},
-   {name:"Upcoming event pressure",value:Number(ev.event_pressure||0).toFixed(2),status:tracked.length?"tracked":"no tracked forecasts"},
+   {name:"Macro context",value:ev.macro_status||"unknown",status:ev.macro_status||"unknown"},
+   {name:"Upcoming event pressure",value:ev.event_pressure==null?"Unknown":Number(ev.event_pressure).toFixed(2),status:ev.event_status||"unknown"},
    ...tracked
   ],x=>'<strong>'+esc(x.name)+'</strong><div class="small">'+esc(x.value)+' · '+esc(x.status)+'</div>'+(x.metrics?'<div class="small">Affected metrics: '+esc(x.metrics)+'</div>':'')+(x.impacts?'<div class="small">Thesis impact: '+esc(x.impacts)+'</div>':'')+(x.source?'<div class="small">Source: '+esc(x.source)+'</div>':''));
   list("risks",[...(r.risks||[]).map(x=>({kind:"Risk",text:x})),...(r.invalidation||[]).map(x=>({kind:"Invalidation",text:x}))],x=>'<strong>'+esc(x.kind)+'</strong><div>'+esc(x.text)+'</div>');
