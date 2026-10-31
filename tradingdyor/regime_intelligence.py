@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from math import sqrt
 from pathlib import Path
@@ -101,6 +101,8 @@ class EventForecast:
     timing_error_days: float | None = None
     market_reaction: float | None = None
     surprise: float | None = None
+    affected_metrics: list[str] = field(default_factory=list)
+    thesis_impacts: list[str] = field(default_factory=list)
 
 
 class EventMemory:
