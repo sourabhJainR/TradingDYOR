@@ -35,8 +35,10 @@ DEFAULT_TASKS = (
     ResearchTask("institutional", "institutional", "Review institutional ownership/flow evidence", expected_evidence_yield=0.5, cost=1.5),
     ResearchTask("sector", "sector", "Assess sector relative strength and regime", expected_evidence_yield=0.7, cost=0.8),
     ResearchTask("macro", "macro", "Assess market and macro regime", expected_evidence_yield=0.6, cost=0.8),
+    ResearchTask("news", "news", "Collect multi-source company news and cautious sentiment", expected_evidence_yield=0.9, cost=1.0),
+    ResearchTask("events", "events", "Review tracked company, sector and macro event forecasts", expected_evidence_yield=0.5, cost=0.6),
     ResearchTask("patents", "patents", "Assess innovation/patent evidence when configured", expected_evidence_yield=0.4, cost=1.3),
-    ResearchTask("synthesis", "synthesis", "Reconcile evidence and produce a research-ready graph", depends_on=("fundamentals", "filings", "insiders", "earnings", "institutional", "sector", "macro", "patents"), expected_evidence_yield=1.0, verification_required=1.5, cost=0.5),
+    ResearchTask("synthesis", "synthesis", "Reconcile evidence and produce a research-ready graph", depends_on=("fundamentals", "filings", "insiders", "earnings", "corporate_actions", "institutional", "sector", "macro", "news", "events", "patents"), expected_evidence_yield=1.0, verification_required=1.5, cost=0.5),
 )
 
 
