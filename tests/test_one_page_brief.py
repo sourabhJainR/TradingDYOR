@@ -188,3 +188,27 @@ def test_event_forecast_persists_metric_and_thesis_links(monkeypatch, tmp_path):
     assert event["thesis_impacts"] == ["guidance may be reduced"]
     listed = client.get("/research/events").json()
     assert listed["events"][0]["event_id"] == event["event_id"]
+
+
+def test_screener_api_passes_market_exchange_and_numeric_filters(monkeypatch):
+    seen = {}
+    def fake_screen(market, **kwargs):
+        seen["market"] = market
+        seen.update(kwargs)
+        return {"status": "available", "market": market, "included": [], "excluded": []}
+
+    monkeypatch.setattr("tradingdyor.universe.screen_universe", fake_screen)
+    response = TestClient(app).get(
+        "/research/screener?market=INDIA&exchange=NSE&limit=6&min_market_cap=1000000000&max_pe=25"
+    )
+    assert response.status_code == 200
+    assert seen["market"] == "INDIA"
+    assert seen["exchange"] == "NSE"
+    assert seen["limit"] == 6
+    assert seen["filters"]["min_market_cap"] == 1_000_000_000
+    assert seen["filters"]["max_pe"] == 25
+
+
+def test_screener_api_rejects_invalid_market():
+    response = TestClient(app).get("/research/screener?market=EUROPE")
+    assert response.status_code == 400
