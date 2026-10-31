@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from math import sqrt
 from pathlib import Path
 import json
+import os
 import threading
 
 import yfinance as yf
@@ -106,6 +108,33 @@ class EventForecast:
     thesis_impacts: list[str] = field(default_factory=list)
 
 
+@contextmanager
+def _exclusive_event_file_lock(path: Path):
+    lock_path = Path(str(path) + ".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+b") as handle:
+        if os.name == "nt":
+            import msvcrt
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write(b"0")
+                handle.flush()
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+            try:
+                yield
+            finally:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
 class EventMemory:
     _lock = threading.RLock()
 
@@ -150,7 +179,8 @@ class EventMemory:
         temporary.replace(self.path)
 
     def record_forecast(self, event: EventForecast):
-        with self._lock:
+        with self._lock, _exclusive_event_file_lock(self.path):
+            self.load()
             if self.load_status == "unavailable":
                 raise RuntimeError("event memory is unavailable; refusing to overwrite unreadable history")
             self.events = [x for x in self.events if x.event_id != event.event_id]
@@ -160,7 +190,8 @@ class EventMemory:
 
     def record_observation(self, event_id: str, observed_at: str, reaction: float,
                            surprise: float | None = None):
-        with self._lock:
+        with self._lock, _exclusive_event_file_lock(self.path):
+            self.load()
             if self.load_status == "unavailable":
                 raise RuntimeError("event memory is unavailable; refusing to overwrite unreadable history")
             for event in reversed(self.events):
