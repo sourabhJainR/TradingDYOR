@@ -72,3 +72,4 @@ SOURCES.extend([
 SOURCES.append(Source("GDELT DOC API","https://api.gdeltproject.org/api/v2/doc/doc","news"))
 
 SOURCES.append(Source("Google News RSS","https://news.google.com/rss/search","news"))
+\nSOURCES.extend([\n    Source("Nasdaq Trader Symbol Directory", "https://www.nasdaqtrader.com/trader.aspx?id=symboldirdefs", "universe"),\n    Source("NYSE Other Listed Symbol Directory", "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt", "universe"),\n    Source("NSE Equity List", "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv", "universe"),\n])\n
