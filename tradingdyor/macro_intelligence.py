@@ -40,8 +40,10 @@ def _fred_value(series_id: str) -> float | None:
 
 def macro_state(market: str = "US") -> dict:
     market = market.upper()
+    if market not in {"US", "INDIA"}:
+        raise ValueError("market must be US or INDIA")
     base = live_macro()
-    regime = classify_market_regime()
+    regime = classify_market_regime(market)
 
     # Defaults are intentionally explicit and overrideable. India fiscal/debt data is
     # maintained by official Ministry/RBI releases rather than silently substituted with US data.
