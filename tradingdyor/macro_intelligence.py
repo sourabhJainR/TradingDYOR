@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import os
 import requests
 
-from .macro_adapter import live_macro, fred_series
+from .macro_adapter import fred_series
 from .regime_intelligence import classify_market_regime
 
 
@@ -42,7 +42,6 @@ def macro_state(market: str = "US") -> dict:
     market = market.upper()
     if market not in {"US", "INDIA"}:
         raise ValueError("market must be US or INDIA")
-    base = live_macro()
     regime = classify_market_regime(market)
 
     # Defaults are intentionally explicit and overrideable. India fiscal/debt data is
@@ -67,8 +66,7 @@ def macro_state(market: str = "US") -> dict:
     }.get(market, {})
 
     values = {k: (_fred_value(v) if v else None) for k, v in ids.items()}
-    sources = list(base.get("sources", []))
-    sources.extend(["FRED where configured", "RBI/Ministry of Finance official releases for India fiscal and debt data"])
+    sources = ["Yahoo Finance market benchmark history", "FRED where configured", "RBI/Ministry of Finance official releases for India fiscal and debt data"]
     result = MacroState(
         as_of=datetime.now(timezone.utc).isoformat(),
         regime=asdict(regime),
