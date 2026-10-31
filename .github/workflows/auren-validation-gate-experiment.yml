@@ -1,0 +1,32 @@
+name: AUREN Validation Gate Experiment
+
+on:
+  pull_request:
+    paths:
+      - "experiments/auren_validation_gate/**"
+      - ".github/workflows/auren-validation-gate-experiment.yml"
+  push:
+    branches: [main]
+    paths:
+      - "experiments/auren_validation_gate/**"
+      - ".github/workflows/auren-validation-gate-experiment.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validation-gate-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out candidate revision
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run experiment and promotion gate
+        run: python experiments/auren_validation_gate/run_experiment.py
+      - name: Run regression and negative-control tests
+        run: python -m unittest discover -s experiments/auren_validation_gate -p 'test_*.py' -v
