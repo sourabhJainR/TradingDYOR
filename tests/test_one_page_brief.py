@@ -212,3 +212,26 @@ def test_screener_api_passes_market_exchange_and_numeric_filters(monkeypatch):
 def test_screener_api_rejects_invalid_market():
     response = TestClient(app).get("/research/screener?market=EUROPE")
     assert response.status_code == 400
+
+
+def test_event_api_reports_corrupt_history_and_refuses_overwrite(monkeypatch, tmp_path):
+    path = tmp_path / "events.json"
+    path.write_text("{corrupt", encoding="utf-8")
+    monkeypatch.setenv("TRADINGDYOR_EVENT_DB", str(path))
+    client = TestClient(app)
+    listed = client.get("/research/events")
+    assert listed.status_code == 200
+    assert listed.json()["status"] == "unavailable"
+    assert listed.json()["calibration"]["status"] == "unavailable"
+    response = client.post("/research/events/forecast", json={
+        "category": "company",
+        "entity": "EXAMPLE",
+        "expected_at": "2026-11-15T12:00:00+00:00",
+        "window_days": 2,
+        "importance": 0.8,
+        "probability": 0.7,
+        "expected_direction": -0.4,
+        "source": "issuer filing",
+    })
+    assert response.status_code == 503
+    assert path.read_text(encoding="utf-8") == "{corrupt"
