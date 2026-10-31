@@ -50,6 +50,11 @@ def event_pressure(memory: EventMemory, ticker: str | None = None) -> float:
     for event in memory.events:
         if event.observed_at or event.importance <= 0:
             continue
+        if ticker and event.category == "company":
+            event_entity = event.entity.strip().upper()
+            symbol = ticker.strip().upper()
+            if event_entity not in {symbol, symbol.removesuffix(".NS"), symbol.removesuffix(".BO")}:
+                continue
         expected = datetime.fromisoformat(event.expected_at.replace("Z", "+00:00"))
         window_start = datetime.fromisoformat(event.window_start.replace("Z", "+00:00"))
         window_end = datetime.fromisoformat(event.window_end.replace("Z", "+00:00"))
