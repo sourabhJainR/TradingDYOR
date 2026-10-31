@@ -71,7 +71,8 @@ def macro(ticker: str) -> dict:
     market = "INDIA" if ticker.upper().endswith((".NS", ".BO")) else "US"
     result = macro_state(market)
     return {
-        "evidence_count": 1,
+        "status": "available" if result.get("regime", {}).get("name") != "unknown" else "unavailable",
+        "evidence_count": 1 if result.get("regime", {}).get("name") != "unknown" else 0,
         "macro": result,
         "macro_pressure": macro_pressure(result),
         "claims": _claims("Market data", [
@@ -100,6 +101,7 @@ def news(ticker: str) -> dict:
             "relevance": 0.5,
         })
     return {
+        "status": result.get("status", "unavailable"),
         "evidence_count": len(articles),
         "news": result,
         "sentiment": result.get("sentiment", {"status": "unscored"}),
@@ -120,6 +122,7 @@ def events(ticker: str) -> dict:
     ]
     pressure = event_pressure(memory, symbol)
     return {
+        "status": "available" if selected else "empty",
         "evidence_count": len(selected),
         "event_pressure": pressure,
         "events": [asdict(event) for event in selected],
