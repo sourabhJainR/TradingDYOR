@@ -82,9 +82,9 @@ def macro(ticker: str) -> dict:
     }
 
 
-def news(ticker: str) -> dict:
+def news(ticker: str, timespan: str = "7d") -> dict:
     market = "INDIA" if ticker.upper().endswith((".NS", ".BO")) else "US"
-    result = fetch_company_news(ticker.upper(), timespan="7d", market=market)
+    result = fetch_company_news(ticker.upper(), timespan=timespan, market=market)
     articles = result.get("articles", []) if isinstance(result, dict) else []
     claims = []
     for article in articles if isinstance(articles, list) else []:
