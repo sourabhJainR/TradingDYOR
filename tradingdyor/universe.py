@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 from io import StringIO
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -219,8 +220,16 @@ def _filter_reasons(snapshot: Mapping[str, Any], filters: Mapping[str, Any]) -> 
         value = snapshot.get(metric)
         if value is None or isinstance(value, bool):
             missing.append(metric)
-        elif not predicate(float(value), float(limit)):
-            reasons.append(filter_name)
+        else:
+            try:
+                numeric_value = float(value)
+            except (TypeError, ValueError):
+                missing.append(metric)
+                continue
+            if not math.isfinite(numeric_value):
+                missing.append(metric)
+            elif not predicate(numeric_value, float(limit)):
+                reasons.append(filter_name)
     sector = filters.get("sector")
     if sector:
         value = snapshot.get("sector")
@@ -262,9 +271,8 @@ def screen_universe(
             "error_type": universe.get("error_type"), "advisory_only": True,
         }
     symbols = universe["symbols"]
-    if exchange:
-        wanted = exchange.strip().upper().replace(" ", "_")
-        symbols = [row for row in symbols if row.get("exchange", "").upper() == wanted]
+    if normalized_exchange:
+        symbols = [row for row in symbols if row.get("exchange", "").upper() == normalized_exchange]
     page = symbols[offset:offset + limit]
     remaining = max(0.0, float(timeout_seconds) - (time.monotonic() - started))
     if remaining <= 0:
@@ -282,7 +290,6 @@ def screen_universe(
             "capacity_limited": 0, "retrieved_at": datetime.now(timezone.utc).isoformat(),
             "advisory_only": True,
         }
-    selected_filters = dict(filters or {})
     loader = snapshot_provider or _cached_snapshot
     futures = {}
     capacity_limited = []
