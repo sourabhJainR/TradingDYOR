@@ -77,3 +77,6 @@ The exchange directory is a candidate universe, not a complete security master. 
 ## Source timestamp contract
 
 The one-page company snapshot keeps `retrieved_at` separate from `price_as_of`. Price, momentum and volatility observations may enter point-in-time history only when the source market-data timestamp is known. Fundamentals with only a retrieval timestamp remain visible in the current brief but are not treated as historically available. GDELT seen time and Google News publication time remain separate. News sentiment can lower confidence when it conflicts with fundamentals, but it cannot change the directional score; low-sample sentiment remains unscored.
+
+
+Event forecast records can name affected metrics and thesis assumptions. Forecast timestamps must include an explicit timezone, and the event store writes atomically. If the event history cannot be parsed or read, the collector reports unavailable and refuses to overwrite the unreadable history. An empty event list is reported as unknown event risk, not as zero event risk.
