@@ -502,7 +502,7 @@ def forecast_event(payload: dict):
         memory = EventMemory(_event_memory_path())
         memory.record_forecast(event)
         return event.__dict__
-    except RuntimeError as exc:
+    except (RuntimeError, OSError) as exc:
         raise HTTPException(503, str(exc))
     except (KeyError, ValueError, TypeError) as exc:
         raise HTTPException(400, str(exc))
