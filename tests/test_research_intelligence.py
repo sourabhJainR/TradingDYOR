@@ -108,7 +108,7 @@ def test_snapshot_separates_market_observation_time_from_retrieval_time(monkeypa
     import pandas as pd
     from tradingdyor.market_data import snapshot_ticker
 
-    index = pd.date_range("2026-10-28", periods=260, freq="D", tz="UTC")
+    index = pd.date_range("2026-02-13", periods=260, freq="D", tz="UTC")
     close = pd.Series([100.0 + index_value for index_value in range(260)], index=index)
 
     class FakeTicker:
