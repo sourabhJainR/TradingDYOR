@@ -241,3 +241,48 @@ def test_research_graph_uses_shared_deadline_for_slow_provider():
     assert result.graph["nodes"]["news"]["error"] == "shared_deadline_exceeded"
     assert result.decision["research_status"] == "partial"
     assert result.decision["evidence_coverage"] <= 0.5
+
+
+def test_partial_news_source_is_not_counted_as_completed_coverage():
+    class Memory:
+        def record(self, _experience):
+            return None
+
+    class NoRetryFabric:
+        memory = Memory()
+
+        def plan(self, capabilities, required_evidence=0.7):
+            return SimpleNamespace(
+                capabilities=tuple(capabilities),
+                retry_budget=0,
+                verification_depth=0.5,
+            )
+
+    snapshot = SecuritySnapshot(
+        ticker="ABC", price=10.0, revenue_growth=0.5, earnings_growth=0.4,
+        roe=0.2, pe=20.0, debt_to_equity=0.2, momentum_12m=0.3,
+        volatility_90d=0.2, evidence_coverage=1.0,
+    )
+    tasks = (
+        ResearchTask("fundamentals", "fundamentals", "Collect fundamentals"),
+        ResearchTask("news", "news", "Collect multi-source news"),
+        ResearchTask("synthesis", "synthesis", "Synthesize", depends_on=("fundamentals", "news")),
+    )
+    result = ResearchOrchestrator(NoRetryFabric(), max_workers=2).run(
+        "ABC",
+        {
+            "fundamentals": lambda _ticker: {
+                "evidence_count": 5, "snapshot": snapshot.model_dump(mode="json"), "claims": [],
+            },
+            "news": lambda _ticker: {
+                "status": "partial", "evidence_count": 4,
+                "news": {"status": "partial", "articles": []},
+            },
+        },
+        ResearchGraph(tasks=tasks),
+    )
+    synthesis = result.graph["nodes"]["synthesis"]["result"]
+    assert synthesis["status"] == "partial"
+    assert synthesis["source_tasks"] == ["fundamentals"]
+    assert synthesis["missing_tasks"][0]["status"] == "partial"
+    assert result.decision["evidence_coverage"] <= 0.5
