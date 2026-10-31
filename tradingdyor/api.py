@@ -182,7 +182,7 @@ def _persist_brief_observations(ticker, snapshot, events, news):
 
             market_url = f"https://finance.yahoo.com/quote/{ticker}"
             for metric in (
-                "price", "market_cap", "pe", "revenue_growth", "roe",
+                "price", "market_cap", "average_volume", "dividend_yield", "pe", "revenue_growth", "roe",
                 "debt_to_equity", "momentum_12m", "volatility_90d",
             ):
                 value = snapshot.get(metric)
