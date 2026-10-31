@@ -482,7 +482,7 @@ def regime_history():
 @app.get("/research/events")
 def research_events():
     memory = EventMemory(_event_memory_path())
-    return {"events": [x.__dict__ for x in memory.events], "calibration": memory.calibration()}
+    return {"status": memory.load_status, "error_type": memory.load_error_type, "events": [x.__dict__ for x in memory.events], "calibration": memory.calibration()}
 
 
 @app.post("/research/events/forecast")
@@ -498,6 +498,8 @@ def forecast_event(payload: dict):
         memory = EventMemory(_event_memory_path())
         memory.record_forecast(event)
         return event.__dict__
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc))
     except (KeyError, ValueError, TypeError) as exc:
         raise HTTPException(400, str(exc))
 
@@ -513,6 +515,8 @@ def extract_events(payload: dict):
         for event in events:
             memory.record_forecast(event)
         return {"events": [x.__dict__ for x in events]}
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc))
     except (KeyError, ValueError, TypeError) as exc:
         raise HTTPException(400, str(exc))
 
@@ -527,6 +531,8 @@ def observe_event(event_id: str, payload: dict):
         return event.__dict__
     except KeyError:
         raise HTTPException(404, "event forecast not found")
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc))
     except (ValueError, TypeError) as exc:
         raise HTTPException(400, str(exc))
 
