@@ -16,11 +16,16 @@ def event_id(category: str, entity: str, expected_at: str) -> str:
 
 def build_forecast(category: str, entity: str, expected_at: str, window_days: int,
                    importance: float, probability: float, expected_direction: float,
-                   source: str) -> EventForecast:
+                   source: str, affected_metrics: list[str] | None = None,
+                   thesis_impacts: list[str] | None = None) -> EventForecast:
     if category not in CATEGORIES:
         raise ValueError(f"unsupported event category: {category}")
     expected = datetime.fromisoformat(expected_at.replace("Z", "+00:00"))
-    window = max(1, int(window_days))
+    window = max(1, min(90, int(window_days)))
+    metrics = list(dict.fromkeys(str(x).strip() for x in (affected_metrics or []) if str(x).strip()))[:10]
+    impacts = list(dict.fromkeys(str(x).strip() for x in (thesis_impacts or []) if str(x).strip()))[:10]
+    if any(len(x) > 120 for x in metrics + impacts):
+        raise ValueError("event metric and thesis impact labels must be at most 120 characters")
     return EventForecast(
         event_id=event_id(category, entity, expected_at),
         category=category, entity=entity, expected_at=expected_at,
@@ -30,6 +35,7 @@ def build_forecast(category: str, entity: str, expected_at: str, window_days: in
         probability=max(0.0, min(1.0, probability)),
         expected_direction=max(-1.0, min(1.0, expected_direction)),
         source=source, created_at=datetime.now(timezone.utc).isoformat(),
+        affected_metrics=metrics, thesis_impacts=impacts,
     )
 
 
