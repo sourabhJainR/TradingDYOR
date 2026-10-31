@@ -386,7 +386,10 @@ def monthly_recommendations(
 
 @app.get("/research/macro-intelligence")
 def macro_intelligence(market: str = "US"):
-    return macro_state(market)
+    try:
+        return macro_state(market)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
 
 
 @app.get("/research/regime-history")
