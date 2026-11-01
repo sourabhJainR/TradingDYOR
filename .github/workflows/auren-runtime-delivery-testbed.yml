@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sourabhJainR/AUREN
-          ref: 80e6ce1907f32d4304659eff8a0a805cfa6aeb15
+          ref: 19a6dfe7a884f2cf7732ab8cedbd272ccf73246b
           path: .auren-under-test
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -49,8 +49,10 @@ jobs:
             tests.test_state_migration \
             tests.test_agent_org_contract \
             tests.test_container_sandboxed_arena_integration
-      - name: Run AUREN receiver-acknowledged HTTP delivery contracts
+      - name: Run AUREN receiver-acknowledged HTTP and CLI delivery contracts
         run: |
           python -m pip install pytest
           cd .auren-under-test
-          python -m pytest -q tests/test_dashboard_chunked_delivery.py
+          python -m pytest -q \
+            tests/test_dashboard_chunked_delivery.py \
+            tests/test_response_delivery_sinks.py
