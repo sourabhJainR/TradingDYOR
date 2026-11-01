@@ -10,6 +10,7 @@ import sys
 from http.server import ThreadingHTTPServer
 from threading import Thread
 from types import SimpleNamespace
+import unittest
 from unittest import TestCase
 from unittest.mock import patch
 import tempfile
