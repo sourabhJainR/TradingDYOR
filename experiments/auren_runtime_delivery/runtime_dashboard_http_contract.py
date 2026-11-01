@@ -202,7 +202,9 @@ class AurenDashboardHostTestBed(TestCase):
                 final = None
                 while time.monotonic() < deadline:
                     status, _, final = self._request(server, "GET", manifest["status"])
-                    self.assertEqual(status, 200)
+                    if status != 200:
+                        task_id = delivery_supervisor.task_id(manifest["response_id"], manifest["delivery_id"])
+                        self.fail(f"status poll failed: {status} {final}; task={controller.task(task_id)}; journal={ProgressJournal(root / '.auren' / 'progress.jsonl').snapshot(task_id)}")
                     if final["complete"]:
                         break
                     time.sleep(0.02)
