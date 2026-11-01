@@ -69,6 +69,12 @@ class AurenRuntimeDeliveryTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.journal_path = Path(self.temp.name) / "progress.jsonl"
         self.task_id = "TradingDYOR:multi-ticker-research:delivery-test"
+        # deliver_response is a worker helper, not a task creator. Seed the
+        # canonical journal with the already-admitted supervisor task state.
+        ProgressJournal(self.journal_path).record(
+            self.task_id, "delivery_worker_admitted", state="running",
+            stage="response-delivery", message="test supervisor admitted delivery worker",
+        )
 
     def tearDown(self):
         self.temp.cleanup()
