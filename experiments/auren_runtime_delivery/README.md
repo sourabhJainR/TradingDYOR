@@ -15,7 +15,7 @@ The test workload represents a multi-ticker research batch with filings, news, e
 
 ## Pinned AUREN source
 
-The workflow checks out AUREN at verified main commit `123fa8e0d1a68f0fcca88208b76c7149e0e812c0`, which includes merged PR #1155. The tests import the actual `portable.dashboard_server`, `portable.response_delivery_artifacts`, `portable.response_delivery`, and `portable.progress_journal` modules directly from that checkout.
+The workflow checks out AUREN at verified main commit `a819f21754c96fc9f4a15ab4db2a6d8cafbe531d`, which includes merged delivery, supervisor and durable task-intent work through PR #1179. The tests import the actual `portable.dashboard_server`, `portable.response_delivery_artifacts`, `portable.response_delivery`, and `portable.progress_journal` modules directly from that checkout.
 
 ## Run
 
