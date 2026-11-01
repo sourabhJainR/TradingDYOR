@@ -18,7 +18,7 @@ permissions:
 jobs:
   auren-delivery-integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
       - name: Check out TradingDYOR
         uses: actions/checkout@v4
@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sourabhJainR/AUREN
-          ref: a819f21754c96fc9f4a15ab4db2a6d8cafbe531d
+          ref: 80e6ce1907f32d4304659eff8a0a805cfa6aeb15
           path: .auren-under-test
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,3 +36,21 @@ jobs:
         env:
           AUREN_ROOT: ${{ github.workspace }}/.auren-under-test
         run: python -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_*_contract.py' -v
+      - name: Run AUREN supervisor, crew, approval and recovery acceptance suites
+        run: |
+          cd .auren-under-test
+          python -m unittest -v \
+            tests.test_trusted_plan_dispatch \
+            tests.test_durable_approval \
+            tests.test_execution_controller_cancellation \
+            tests.test_graph_agent_team_crew_dispatch \
+            tests.test_graph_agent_crews \
+            tests.test_graph_worker_lifecycle \
+            tests.test_state_migration \
+            tests.test_agent_org_contract \
+            tests.test_container_sandboxed_arena_integration
+      - name: Run AUREN receiver-acknowledged HTTP delivery contracts
+        run: |
+          python -m pip install pytest
+          cd .auren-under-test
+          python -m pytest -q tests/test_dashboard_chunked_delivery.py
