@@ -15,7 +15,7 @@ The test workload represents a multi-ticker research batch with filings, news, e
 
 ## Pinned AUREN source
 
-The workflow checks out AUREN at verified main commit `80e6ce1907f32d4304659eff8a0a805cfa6aeb15`, which includes merged delivery, supervisor and durable task-intent work through PR #1179. The tests import the actual `portable.dashboard_server`, `portable.response_delivery_artifacts`, `portable.response_delivery`, and `portable.progress_journal` modules directly from that checkout.
+The workflow checks out AUREN at exact main commit `19a6dfe7a884f2cf7732ab8cedbd272ccf73246b`. The tests import the actual `portable.dashboard_server`, `portable.response_delivery_artifacts`, `portable.response_delivery`, and `portable.progress_journal` modules directly from that checkout. The pin is intentionally immutable so a test run can be reproduced.
 
 ## Run
 
@@ -23,8 +23,10 @@ The workflow checks out AUREN at verified main commit `80e6ce1907f32d4304659eff8
 AUREN_ROOT=/path/to/AUREN python -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_*_contract.py' -v
 ```
 
-The host test persists receiver chunks before acknowledgement, simulates a lost ack response and dashboard process restart, verifies the resumed research brief digest, and requires a separate final completion receipt. It validates the dashboard HTTP path only; MCP stdio remains atomic and supervisor-parent completion/CLI delivery remain open under AUREN issue #1140.
+The host test persists receiver chunks before acknowledgement, simulates a lost ack response and dashboard process restart, verifies the resumed research brief digest, and requires a separate final completion receipt.
 
-## Production acceptance coverage
+## Current coverage boundary
 
-The dedicated GitHub Actions workflow pins AUREN at `80e6ce1907f32d4304659eff8a0a805cfa6aeb15` and runs its trusted plan dispatch, durable approvals, supervisor-to-graph/crew cancellation, graph worker lifecycle, state migration, CEO/CTO organization-gate, Docker Arena isolation and receiver-acknowledged HTTP delivery tests. These are repository CI contracts, not an operator staging rehearsal or an independent production-host isolation audit.
+This test bed proves the dashboard HTTP receiver-acknowledgement path only. It does not prove universal host integration. CLI stdout/file delivery remains an atomic sink contract; MCP stdio remains bounded and fail-closed for protocol frames rather than using response chunking; supervisor-parent completion must still be verified against a real host-owned acknowledgement. These are tracked under AUREN issue #1140.
+
+The suite is a repository CI contract, not an operator staging rehearsal or an independent production-host isolation audit. The pinned AUREN revision is a test target, not a runtime dependency of TradingDYOR.
