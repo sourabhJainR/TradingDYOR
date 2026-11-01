@@ -4,11 +4,13 @@ import hashlib
 import http.client
 import json
 import os
+import time
 from pathlib import Path
 import sys
 from http.server import ThreadingHTTPServer
 from threading import Thread
 from types import SimpleNamespace
+import unittest
 from unittest import TestCase
 from unittest.mock import patch
 import tempfile
@@ -21,6 +23,11 @@ sys.path.insert(0, str(AUREN_ROOT))
 from portable import dashboard_server
 from portable.agency_release_lifecycle import ArtifactStore
 from portable.hybrid_model_router import HybridModelRouter
+from portable.execution_controller import ExecutionController
+try:
+    from portable.response_delivery_supervisor import ResponseDeliverySupervisor
+except ImportError:  # Older AUREN pins are covered by the dedicated current-pin workflow.
+    ResponseDeliverySupervisor = None
 from portable.progress_journal import ProgressJournal
 from portable.response_delivery_artifacts import ResponseArtifactRepository
 
@@ -73,13 +80,14 @@ def stock_brief_fixture():
 
 
 class AurenDashboardHostTestBed(TestCase):
-    def _server(self, root):
+    def _server(self, root, delivery_supervisor):
         runtime = root / ".auren"
         store = ArtifactStore(runtime / "releases")
         handler = type("TradingDYORHostTestHandler", (dashboard_server._Handler,), {
             "artifact_store": store,
             "response_repository": ResponseArtifactRepository(store),
             "progress_journal": ProgressJournal(runtime / "progress.jsonl"),
+            "delivery_supervisor": delivery_supervisor,
         })
         server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
         thread = Thread(target=server.serve_forever, daemon=True)
@@ -106,6 +114,7 @@ class AurenDashboardHostTestBed(TestCase):
         server.server_close()
         thread.join(timeout=5)
 
+    @unittest.skipIf(ResponseDeliverySupervisor is None, "pinned AUREN revision predates supervisor-owned delivery")
     def test_stock_brief_survives_lost_ack_and_dashboard_restart(self):
         brief = stock_brief_fixture()
         routed = SimpleNamespace(
@@ -119,7 +128,11 @@ class AurenDashboardHostTestBed(TestCase):
             root = Path(directory)
             receiver = root / "receiver"
             receiver.mkdir()
-            server, thread = self._server(root)
+            controller = ExecutionController(root)
+            delivery_supervisor = ResponseDeliverySupervisor(
+                controller, root / ".auren" / "progress.jsonl",
+            )
+            server, thread = self._server(root, delivery_supervisor)
             try:
                 status, headers, manifest = self._request(
                     server, "POST", "/api/route", {"task": "deliver multi-ticker stock brief"},
@@ -143,7 +156,7 @@ class AurenDashboardHostTestBed(TestCase):
                 self._stop(server, thread)
 
             # Receiver has chunk 1 on disk but lost the acknowledgement response.
-            server, thread = self._server(root)
+            server, thread = self._server(root, delivery_supervisor)
             try:
                 status, _, checkpoint = self._request(server, "GET", manifest["status"])
                 self.assertEqual(status, 200)
@@ -186,10 +199,21 @@ class AurenDashboardHostTestBed(TestCase):
                     "response_sha256": manifest["response_sha256"],
                     "total_chunks": manifest["total_chunks"],
                 })
-                self.assertEqual(status, 200)
-                self.assertTrue(receipt["completed"])
-                status, _, final = self._request(server, "GET", manifest["status"])
-                self.assertEqual(status, 200)
+                # Receiver completion is accepted synchronously, while the
+                # supervisor parent acknowledges terminal completion asynchronously.
+                self.assertEqual(status, 202)
+                self.assertTrue(receipt["accepted"])
+                deadline = time.monotonic() + 3.0
+                final = None
+                while time.monotonic() < deadline:
+                    status, _, final = self._request(server, "GET", manifest["status"])
+                    if status != 200:
+                        task_id = delivery_supervisor.task_id(manifest["response_id"], manifest["delivery_id"])
+                        self.fail(f"status poll failed: {status} {final}; task={controller.task(task_id)}; journal={ProgressJournal(root / '.auren' / 'progress.jsonl').snapshot(task_id)}")
+                    if final["complete"]:
+                        break
+                    time.sleep(0.02)
+                self.assertIsNotNone(final)
                 self.assertTrue(final["complete"])
             finally:
                 self._stop(server, thread)
