@@ -4,6 +4,7 @@ import hashlib
 import http.client
 import json
 import os
+import time
 from pathlib import Path
 import sys
 from http.server import ThreadingHTTPServer
@@ -193,10 +194,19 @@ class AurenDashboardHostTestBed(TestCase):
                     "response_sha256": manifest["response_sha256"],
                     "total_chunks": manifest["total_chunks"],
                 })
-                self.assertEqual(status, 200)
-                self.assertTrue(receipt["completed"])
-                status, _, final = self._request(server, "GET", manifest["status"])
-                self.assertEqual(status, 200)
+                # Receiver completion is accepted synchronously, while the
+                # supervisor parent acknowledges terminal completion asynchronously.
+                self.assertEqual(status, 202)
+                self.assertTrue(receipt["accepted"])
+                deadline = time.monotonic() + 3.0
+                final = None
+                while time.monotonic() < deadline:
+                    status, _, final = self._request(server, "GET", manifest["status"])
+                    self.assertEqual(status, 200)
+                    if final["complete"]:
+                        break
+                    time.sleep(0.02)
+                self.assertIsNotNone(final)
                 self.assertTrue(final["complete"])
             finally:
                 self._stop(server, thread)
