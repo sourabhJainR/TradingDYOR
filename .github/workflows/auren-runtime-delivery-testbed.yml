@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sourabhJainR/AUREN
-          ref: def5382f3f93c3abceef1596924d38414baebf3c
+          ref: 0091745cd6a38a66d1b0bc1099ee0fd8d1e8a4cf
           path: .auren-under-test
       - name: Set up Python
         uses: actions/setup-python@v5
