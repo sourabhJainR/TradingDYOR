@@ -31,22 +31,27 @@ from tradingdyor import api as research_api
 
 
 _CAPTURED_BRIEFS = []
+_HANDLER_ERRORS = []
 
 
 def stock_research_handler(payload):
     """Importable durable handler registered with the canonical controller."""
-    response = TestClient(research_api.app).get(
-        f"/research/brief/{payload['ticker']}"
-    )
-    if response.status_code != 200:
-        raise AssertionError(f"stock brief returned HTTP {response.status_code}: {response.text}")
-    brief = response.json()
-    _CAPTURED_BRIEFS.append(brief)
-    return {
-        "ticker": payload["ticker"],
-        "http_status": response.status_code,
-        "brief_digest": hashlib.sha256(response.content).hexdigest(),
-    }
+    try:
+        response = TestClient(research_api.app).get(
+            f"/research/brief/{payload['ticker']}"
+        )
+        if response.status_code != 200:
+            raise AssertionError(f"stock brief returned HTTP {response.status_code}: {response.text}")
+        brief = response.json()
+        _CAPTURED_BRIEFS.append(brief)
+        return {
+            "ticker": payload["ticker"],
+            "http_status": response.status_code,
+            "brief_digest": hashlib.sha256(response.content).hexdigest(),
+        }
+    except Exception as exc:
+        _HANDLER_ERRORS.append(repr(exc))
+        raise
 
 
 class StockResearchCanonicalRuntimeTests(unittest.TestCase):
@@ -112,6 +117,7 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
             }
 
             _CAPTURED_BRIEFS.clear()
+            _HANDLER_ERRORS.clear()
 
             work_key = "AUREN:TradingDYOR:stock-brief:NVDA:v1"
 
@@ -184,10 +190,17 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
                 ),
                 patch.object(research_api, "fetch_company_news", lambda *_args, **_kwargs: news),
             ):
+                # Exercise the same trusted preflight explicitly so failures are
+                # visible instead of being reduced to a terminal task state.
+                controller._verify_engineering_plan_dispatch_checkpoint(task)
+                controller._evaluate_guard_for_task(task)
                 controller.run_once(task.id)
 
             completed = controller.task(task.id)
-            self.assertEqual("completed", completed.state)
+            self.assertEqual(
+                "completed", completed.state,
+                f"handler_errors={_HANDLER_ERRORS!r}; captured_briefs={len(_CAPTURED_BRIEFS)}",
+            )
             self.assertEqual(1, len(_CAPTURED_BRIEFS))
             brief = _CAPTURED_BRIEFS[0]
             self.assertEqual(ticker, brief["ticker"])
