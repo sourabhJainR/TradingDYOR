@@ -54,8 +54,6 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
         ticker = "NVDA"
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp:
             plan, _run, packet, _review_packet, store, controller, bridge = prepared(temp)
-            captured = []
-
             graph = {
                 "nodes": {
                     "fundamentals": {
