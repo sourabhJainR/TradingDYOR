@@ -99,7 +99,7 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
                 "retrieved_at": "2026-11-02T20:01:00+00:00",
                 "providers": [
                     {"name": "GDELT", "status": "available"},
-                    {"name": "Google News RSS", "status": "available"},
+                    {"name": "Google News RSS", "status": "unavailable", "error_type": "TimeoutError"},
                 ],
                 "articles": [{
                     "story_id": "fixture-story-1",
@@ -207,8 +207,19 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
             brief = _CAPTURED_BRIEFS[0]
             self.assertEqual(ticker, brief["ticker"])
             self.assertEqual("NVIDIA Corporation", brief["company"]["name"])
+            self.assertEqual(200.0, brief["company"]["price"])
+            self.assertEqual("USD", brief["company"]["currency"])
+            self.assertEqual("2026-11-02T20:00:00+00:00", brief["company"]["price_as_of"])
+            self.assertEqual("2026-11-02T20:01:00+00:00", brief["company"]["retrieved_at"])
             self.assertEqual("HOLD", brief["recommendation"]["action"])
+            self.assertEqual(0.4, brief["recommendation"]["confidence"])
+            self.assertEqual(0.45, brief["evidence"]["coverage"])
+            self.assertEqual("available", brief["news"]["status"])
+            self.assertEqual("2026-11-02T20:01:00+00:00", brief["news"]["retrieved_at"])
+            self.assertEqual("2026-11-02T19:30:00+00:00", brief["news"]["articles"][0]["publish_time"])
+            self.assertEqual("unavailable", brief["news"]["providers"][1]["status"])
             self.assertEqual("unscored", brief["news"]["sentiment"]["status"])
+            self.assertEqual("Insufficient independent publisher coverage", brief["news"]["sentiment"]["methodology"])
             self.assertTrue(brief["advisory_only"])
             self.assertEqual(
                 "host_authorized_before_submission",
