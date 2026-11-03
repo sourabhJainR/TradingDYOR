@@ -30,6 +30,25 @@ from tests.test_engineering_plan_dispatch import prepared
 from tradingdyor import api as research_api
 
 
+_CAPTURED_BRIEFS = []
+
+
+def stock_research_handler(payload):
+    """Importable durable handler registered with the canonical controller."""
+    response = TestClient(research_api.app).get(
+        f"/research/brief/{payload['ticker']}"
+    )
+    if response.status_code != 200:
+        raise AssertionError(f"stock brief returned HTTP {response.status_code}: {response.text}")
+    brief = response.json()
+    _CAPTURED_BRIEFS.append(brief)
+    return {
+        "ticker": payload["ticker"],
+        "http_status": response.status_code,
+        "brief_digest": hashlib.sha256(response.content).hexdigest(),
+    }
+
+
 class StockResearchCanonicalRuntimeTests(unittest.TestCase):
     def test_stock_brief_executes_through_trusted_plan_dispatch(self):
         ticker = "NVDA"
@@ -94,21 +113,7 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
                 },
             }
 
-            def stock_research_handler(payload):
-                response = TestClient(research_api.app).get(
-                    f"/research/brief/{payload['ticker']}"
-                )
-                if response.status_code != 200:
-                    raise AssertionError(f"stock brief returned HTTP {response.status_code}: {response.text}")
-                brief = response.json()
-                captured.append(brief)
-                return {
-                    "ticker": payload["ticker"],
-                    "http_status": response.status_code,
-                    "brief_digest": hashlib.sha256(
-                        response.content
-                    ).hexdigest(),
-                }
+            _CAPTURED_BRIEFS.clear()
 
             controller.register_handler(
                 "stock-research-brief", stock_research_handler,
@@ -170,8 +175,8 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
 
             completed = controller.task(task.id)
             self.assertEqual("completed", completed.state)
-            self.assertEqual(1, len(captured))
-            brief = captured[0]
+            self.assertEqual(1, len(_CAPTURED_BRIEFS))
+            brief = _CAPTURED_BRIEFS[0]
             self.assertEqual(ticker, brief["ticker"])
             self.assertEqual("NVIDIA Corporation", brief["company"]["name"])
             self.assertEqual("HOLD", brief["recommendation"]["action"])
