@@ -194,6 +194,8 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
                 # visible instead of being reduced to a terminal task state.
                 controller._verify_engineering_plan_dispatch_checkpoint(task)
                 controller._evaluate_guard_for_task(task)
+                gates_passed, gate_detail, _gate_evidence = controller._preflight_gates(task)
+                self.assertTrue(gates_passed, gate_detail)
                 controller.run_once(task.id)
 
             completed = controller.task(task.id)
