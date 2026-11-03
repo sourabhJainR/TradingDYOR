@@ -113,9 +113,24 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
 
             _CAPTURED_BRIEFS.clear()
 
+            work_key = "AUREN:TradingDYOR:stock-brief:NVDA:v1"
+
+            def host_assignment_verifier(request):
+                return (
+                    request.get("role_id") == "BE-01"
+                    and request.get("manager_id") == "EM-ENG-01"
+                    and request.get("action_class") == "run_scoped_tests"
+                    and request.get("scope") == ("NVDA",)
+                    and request.get("work_key") == work_key
+                    and isinstance(request.get("task_payload_digest"), str)
+                    and len(request["task_payload_digest"]) == 64
+                )
+
+            controller._agent_assignment_verifier = host_assignment_verifier
             controller.register_handler(
                 "stock-research-brief", stock_research_handler,
                 execution_class="read_only",
+                agent_action_class="run_scoped_tests",
             )
             guard = RuntimeExecutionGuard(max_steps=8, max_attempts=2, deadline_seconds=120)
             admission_digest = guard.snapshot()["digest"]
@@ -129,7 +144,7 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
             def assignment_resolver(context):
                 return authorize_agent_assignment(
                     **assignment_policy,
-                    authorizer=lambda _request: True,
+                    authorizer=host_assignment_verifier,
                     work_key=context["dispatch_key"],
                     task_payload=context["payload"],
                     deadline_seconds=context["deadline_seconds"],
@@ -150,11 +165,11 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
                 assignment_resolver=assignment_resolver,
             )
 
-            payload = {"resource": ticker, "ticker": ticker, "market": "US"}
+            payload = {"resource": ticker, "ticker": ticker, "market": "US", "work_key": work_key}
             task = root.dispatch(
                 run_id=plan.run_id,
                 task_id="implement",
-                dispatch_key="AUREN:TradingDYOR:stock-brief:NVDA:v1",
+                dispatch_key=work_key,
                 handler="stock-research-brief",
                 packet=packet,
                 payload=payload,
