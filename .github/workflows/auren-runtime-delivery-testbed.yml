@@ -32,6 +32,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install TradingDYOR application and test dependencies
+        run: python -m pip install -e ".[dev]"
       - name: Run cross-domain AUREN runtime tests
         env:
           AUREN_ROOT: ${{ github.workspace }}/.auren-under-test
