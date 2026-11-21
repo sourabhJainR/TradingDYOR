@@ -15,7 +15,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parent
-AARDISA_ROOT = Path(os.environ["ARDISA_ROOT"]).resolve()
+ARDISA_ROOT = Path(os.environ["ARDISA_ROOT"]).resolve()
 REVISION = os.environ["ARDISA_REVISION"]
 
 if not (AARDISA_ROOT / "Cargo.toml").is_file():
