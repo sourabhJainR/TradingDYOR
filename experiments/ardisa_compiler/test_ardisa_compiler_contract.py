@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent
 ARDISA_ROOT = Path(os.environ["ARDISA_ROOT"]).resolve()
 REVISION = os.environ["ARDISA_REVISION"]
 
-if not (AARDISA_ROOT / "Cargo.toml").is_file():
+if not (ARDISA_ROOT / "Cargo.toml").is_file():
     raise RuntimeError("ARDISA_ROOT must point to the pinned Ardisa checkout")
 
 
@@ -26,9 +26,9 @@ def cli(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [
             "cargo", "run", "--quiet", "--manifest-path",
-            str(AARDISA_ROOT / "Cargo.toml"), "-p", "ardisa", "--", *map(str, args),
+            str(ARDISA_ROOT / "Cargo.toml"), "-p", "ardisa", "--", *map(str, args),
         ],
-        cwd=AARDISA_ROOT,
+        cwd=ARDISA_ROOT,
         text=True,
         capture_output=True,
         check=False,
