@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sourabhJainR/Ardisa
-          ref: b0473b105db6f118bfc2eb7443999325c93a516f
+          ref: 525ecc315582493d2c3b3a69f963881a08865d35
           path: .ardisa-under-test
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -43,5 +43,5 @@ jobs:
       - name: Run cross-repository compiler/runtime contracts
         env:
           ARDISA_ROOT: ${{ github.workspace }}/.ardisa-under-test
-          ARDISA_REVISION: b0473b105db6f118bfc2eb7443999325c93a516f
+          ARDISA_REVISION: 525ecc315582493d2c3b3a69f963881a08865d35
         run: python -m unittest discover -s experiments/ardisa_compiler -p 'runtime_*_contract.py' -v
