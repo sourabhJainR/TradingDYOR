@@ -128,6 +128,7 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
                     and request.get("action_class") == "run_scoped_tests"
                     and request.get("scope") == ("NVDA",)
                     and request.get("work_key") == work_key
+                    and request.get("principal_id") == "tradingdyor-acceptance-test"
                     and isinstance(request.get("task_payload_digest"), str)
                     and len(request["task_payload_digest"]) == 64
                 )
@@ -151,6 +152,7 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
                 return authorize_agent_assignment(
                     **assignment_policy,
                     authorizer=host_assignment_verifier,
+                    principal_id="tradingdyor-acceptance-test",
                     work_key=context["dispatch_key"],
                     task_payload=context["payload"],
                     deadline_seconds=context["deadline_seconds"],
