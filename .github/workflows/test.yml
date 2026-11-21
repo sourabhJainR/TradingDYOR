@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sourabhJainR/AUREN
-          ref: da63998a11b1632c81fc9d35aacbfc41138202c6
+          ref: 68590d41d25d01d401d79d031d30fe2a80bd52ac
           path: .auren-under-test
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -52,6 +52,8 @@ jobs:
         run: |
           cd .auren-under-test
           python -m unittest -v tests.test_quality_optimizer_contract
+          python -m unittest discover -s .ai-harness/tests -p 'test_context_cache.py' -v
+          PYTHONPATH=. python -m pytest tests/test_auto_compaction_protected_budget.py tests/test_hybrid_model_router.py -q
       - name: Run cross-domain AUREN runtime tests
         env:
           AUREN_ROOT: ${{ github.workspace }}/.auren-under-test
