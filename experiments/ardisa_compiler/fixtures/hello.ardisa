@@ -1,0 +1,4 @@
+module tradingdyor_acceptance
+
+fn main() -> Int
+  42
