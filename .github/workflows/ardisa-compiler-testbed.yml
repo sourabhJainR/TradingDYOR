@@ -1,0 +1,47 @@
+name: Ardisa Compiler Runtime Test Bed
+
+on:
+  pull_request:
+    paths:
+      - "experiments/ardisa_compiler/**"
+      - ".github/workflows/ardisa-compiler-testbed.yml"
+  push:
+    branches: [main]
+    paths:
+      - "experiments/ardisa_compiler/**"
+      - ".github/workflows/ardisa-compiler-testbed.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ardisa-compiler-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out TradingDYOR test fixtures
+        uses: actions/checkout@v4
+      - name: Check out pinned Ardisa compiler
+        uses: actions/checkout@v4
+        with:
+          repository: sourabhJainR/Ardisa
+          ref: b0473b105db6f118bfc2eb7443999325c93a516f
+          path: .ardisa-under-test
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check Ardisa workspace
+        working-directory: .ardisa-under-test
+        run: cargo check --workspace --all-targets
+      - name: Run Ardisa workspace tests
+        working-directory: .ardisa-under-test
+        run: cargo test --workspace --all-targets
+      - name: Run cross-repository compiler/runtime contracts
+        env:
+          ARDISA_ROOT: ${{ github.workspace }}/.ardisa-under-test
+          ARDISA_REVISION: b0473b105db6f118bfc2eb7443999325c93a516f
+        run: python -m unittest discover -s experiments/ardisa_compiler -p 'test_*.py' -v
