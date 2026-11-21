@@ -1,0 +1,12 @@
+module proof_trace_fail_closed
+
+proof ReleaseGate
+  requires: type_safety, bounds
+  ensures: true
+  on_unknown: reject
+  required: true
+trace Audit
+  signature: required
+
+fn main() -> Int
+  7
