@@ -48,6 +48,10 @@ jobs:
           python-version: "3.12"
       - name: Install TradingDYOR application and test dependencies
         run: python -m pip install -e ".[dev]"
+      - name: Run AUREN optimizer and rubric trust-boundary tests
+        run: |
+          cd .auren-under-test
+          python -m unittest -v tests.test_quality_optimizer_contract
       - name: Run cross-domain AUREN runtime tests
         env:
           AUREN_ROOT: ${{ github.workspace }}/.auren-under-test
