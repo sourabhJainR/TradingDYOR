@@ -6,6 +6,7 @@ composition and runtime authority; it does not claim live provider coverage.
 from __future__ import annotations
 
 import hashlib
+import inspect
 import os
 from pathlib import Path
 import sys
@@ -119,6 +120,11 @@ class StockResearchCanonicalRuntimeTests(unittest.TestCase):
             _CAPTURED_BRIEFS.clear()
             _HANDLER_ERRORS.clear()
 
+            self.assertIn(
+                "principal_id", inspect.signature(authorize_agent_assignment).parameters,
+                f"loaded assignment helper from {inspect.getsourcefile(authorize_agent_assignment)} "
+                f"has signature {inspect.signature(authorize_agent_assignment)}",
+            )
             work_key = "AUREN:TradingDYOR:stock-brief:NVDA:v1"
 
             def host_assignment_verifier(request):
