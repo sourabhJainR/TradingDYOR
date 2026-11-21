@@ -44,4 +44,4 @@ jobs:
         env:
           ARDISA_ROOT: ${{ github.workspace }}/.ardisa-under-test
           ARDISA_REVISION: b0473b105db6f118bfc2eb7443999325c93a516f
-        run: python -m unittest discover -s experiments/ardisa_compiler -p 'test_*.py' -v
+        run: python -m unittest discover -s experiments/ardisa_compiler -p 'runtime_*_contract.py' -v
