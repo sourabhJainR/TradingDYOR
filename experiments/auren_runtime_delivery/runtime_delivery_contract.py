@@ -87,10 +87,12 @@ class AurenRuntimeDeliveryTests(unittest.TestCase):
         self.assertRegex(AUREN_REVISION, r"^[0-9a-f]{40}$")
         observed = checked_out_revision(AUREN_ROOT)
         self.assertEqual(AUREN_REVISION, observed)
+        testbed_revision = checked_out_revision(ROOT.parent.parent)
+        self.assertRegex(testbed_revision, r"^[0-9a-f]{40}$")
         print(json.dumps({
             "contract": "auren-runtime-delivery-v1",
             "auren_revision": observed,
-            "testbed_checkout_sha": checked_out_revision(ROOT.parent.parent),
+            "testbed_checkout_sha": testbed_revision,
             "network_access_required": False,
             "production_trading_code_changed": False,
         }, sort_keys=True))
