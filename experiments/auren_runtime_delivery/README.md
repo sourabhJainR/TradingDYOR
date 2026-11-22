@@ -21,7 +21,9 @@ The workflow checks out candidate AUREN commit `2257e7a4a62715036e66c4d3477e26cd
 ## Run
 
 ```bash
-AUREN_ROOT=/path/to/AUREN \\\nAUREN_REVISION=<40-character-commit-sha> \\\npython -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_*_contract.py' -v
+AUREN_ROOT=/path/to/AUREN \
+AUREN_REVISION=<40-character-commit-sha> \
+python -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_*_contract.py' -v
 ```
 
 The HTTP host test persists receiver chunks before acknowledgement, simulates a lost ack response and dashboard process restart, verifies the resumed research brief digest, and requires a separate final completion receipt. The CLI subprocess tests verify exact stdout bytes and SHA-256 receipts, reject oversized output before writing, and preserve existing files when overwrite is not explicitly enabled.
