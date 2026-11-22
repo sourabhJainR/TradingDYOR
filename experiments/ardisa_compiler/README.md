@@ -27,9 +27,9 @@ python -m unittest discover -s experiments/ardisa_compiler -p 'test_*.py' -v
 
 The dedicated GitHub Actions workflow checks out the candidate Ardisa commit `4c5abac3a50425730c3770bd85358da077694c90` from PR #399, verifies the checkout SHA,
 then runs the full Ardisa workspace tests and this suite. The pinned PR also
-includes the loopback-only native HTTP host, exact listener Host validation,
-and loopback-only browser Origin checks. DNS-rebinding and remote-origin negative
-tests run in the workspace suite. The test invokes `cargo run -p ardisa` against that checkout;
+includes the loopback-only native HTTP host, exact listener Host validation, loopback-only browser Origin checks, and
+Fetch Metadata rejection for cross-site requests that omit Origin. DNS-rebinding,
+remote-origin and cross-site-no-Origin negative tests run in the workspace suite. The test invokes `cargo run -p ardisa` against that checkout;
 it does not reimplement or simulate the compiler. After PR #399 merges, refresh
 this pin to the merge commit before merging the test-bed change.
 
