@@ -25,7 +25,7 @@ ARDISA_REVISION=<40-character-commit-sha> \
 python -m unittest discover -s experiments/ardisa_compiler -p 'test_*.py' -v
 ```
 
-The dedicated GitHub Actions workflow checks out the candidate Ardisa commit `2d9dfd5fbfbaf9ea6d0a89b2433fdbfaba2f4bf5` from PR #399, verifies the checkout SHA,
+The dedicated GitHub Actions workflow checks out the candidate Ardisa commit `4c5abac3a50425730c3770bd85358da077694c90` from PR #399, verifies the checkout SHA,
 then runs the full Ardisa workspace tests and this suite. The pinned PR also
 includes the loopback-only native HTTP host, exact listener Host validation,
 and loopback-only browser Origin checks. DNS-rebinding and remote-origin negative
