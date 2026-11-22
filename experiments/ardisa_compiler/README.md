@@ -25,7 +25,7 @@ ARDISA_REVISION=<40-character-commit-sha> \
 python -m unittest discover -s experiments/ardisa_compiler -p 'test_*.py' -v
 ```
 
-The dedicated GitHub Actions workflow checks out Ardisa at a full commit SHA,
+The dedicated GitHub Actions workflow checks out Ardisa at exact main commit `61577c3469d8fbdec039e85ae119d417f1df2702`, verifies the checkout SHA,
 then runs this suite. The test invokes `cargo run -p ardisa` against that
 checkout; it does not reimplement or simulate the compiler.
 
