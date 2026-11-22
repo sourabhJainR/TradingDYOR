@@ -22,6 +22,20 @@ if not (ARDISA_ROOT / "Cargo.toml").is_file():
     raise RuntimeError("ARDISA_ROOT must point to the pinned Ardisa checkout")
 
 
+def checked_out_revision() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ARDISA_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"could not resolve Ardisa checkout revision: {result.stderr}")
+    return result.stdout.strip()
+
+
 def cli(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [
@@ -37,6 +51,10 @@ def cli(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 class ArdisaCompilerAcceptance(unittest.TestCase):
+    def test_checkout_matches_the_immutable_revision_pin(self) -> None:
+        self.assertRegex(REVISION, r"^[0-9a-f]{40}$")
+        self.assertEqual(REVISION, checked_out_revision())
+
     def test_real_source_runs_through_native_runtime(self) -> None:
         source = ROOT / "fixtures" / "hello.ardisa"
         result = cli("run", str(source))
@@ -56,13 +74,22 @@ class ArdisaCompilerAcceptance(unittest.TestCase):
                 self.assertEqual(0, verify.returncode, verify.stderr)
             first_bytes, second_bytes = first.read_bytes(), second.read_bytes()
             self.assertEqual(first_bytes, second_bytes, "repeat builds must be byte-identical")
-            self.assertEqual(
-                hashlib.sha256(first_bytes).hexdigest(),
-                hashlib.sha256(second_bytes).hexdigest(),
-            )
+            first_hash = hashlib.sha256(first_bytes).hexdigest()
+            second_hash = hashlib.sha256(second_bytes).hexdigest()
+            self.assertRegex(first_hash, r"^[0-9a-f]{64}$")
+            self.assertEqual(first_hash, second_hash, "repeat builds must have the same SHA-256")
             executed = cli("bootstrap", "run", str(first))
             self.assertEqual(0, executed.returncode, executed.stderr)
             self.assertEqual("42", executed.stdout.strip())
+            print(json.dumps({
+                "contract": "ardisa-artifact-determinism-v1",
+                "ardisa_revision": checked_out_revision(),
+                "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+                "artifact_sha256": first_hash,
+                "artifact_bytes": len(first_bytes),
+                "result": executed.stdout.strip(),
+                "self_hosting_claim": "not_asserted",
+            }, sort_keys=True))
 
     def test_malformed_native_artifact_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ardisa-testbed-") as directory:
@@ -81,16 +108,24 @@ class ArdisaCompilerAcceptance(unittest.TestCase):
                 "unsupported Proof/Trace source operations must not be silently accepted",
             )
             self.assertFalse(output.exists(), "failed compilation must not emit an artifact")
+            run_result = cli("run", str(source))
+            self.assertNotEqual(
+                0, run_result.returncode,
+                "unsupported Proof/Trace source operations must not execute through the native runtime",
+            )
 
     def test_evidence_is_bound_to_the_requested_immutable_revision(self) -> None:
         self.assertRegex(REVISION, r"^[0-9a-f]{40}$")
+        self.assertEqual(REVISION, checked_out_revision())
         source = ROOT / "fixtures" / "hello.ardisa"
         digest = hashlib.sha256(source.read_bytes()).hexdigest()
         evidence = {
             "contract": "ardisa-compiler-acceptance-v1",
-            "ardisa_revision": REVISION,
+            "ardisa_revision": checked_out_revision(),
             "fixture": source.relative_to(ROOT).as_posix(),
             "fixture_sha256": digest,
+            "proof_trace": "unsupported operations fail closed",
+            "self_hosting_claim": "not_asserted",
             "network_access_required": False,
             "production_trading_code_changed": False,
         }
