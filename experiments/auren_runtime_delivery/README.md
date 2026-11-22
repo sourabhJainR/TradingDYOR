@@ -16,7 +16,7 @@ The test workload represents a multi-ticker research batch with filings, news, e
 
 ## Pinned AUREN source
 
-The workflow checks out AUREN at exact main commit `19a6dfe7a884f2cf7732ab8cedbd272ccf73246b`. The tests import the actual `portable.dashboard_server`, `portable.response_delivery_artifacts`, `portable.response_delivery`, `portable.progress_journal`, and CLI delivery entry point directly from that checkout. The pin is immutable so a test run can be reproduced.
+The workflow checks out AUREN at exact main commit `ba6432e9ed525164e09bab81d0edfa0e1a9bb51b` (the main revision containing the merged #1430 chat-session continuity changes). CI verifies `git rev-parse HEAD` against this pin before running the contracts. The tests import the actual `portable.dashboard_server`, `portable.response_delivery_artifacts`, `portable.response_delivery`, `portable.progress_journal`, and CLI delivery entry point directly from that checkout. The pin is immutable so a test run can be reproduced.
 
 ## Run
 
