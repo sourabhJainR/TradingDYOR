@@ -39,6 +39,7 @@ jobs:
       - name: Run cross-domain AUREN runtime tests
         env:
           AUREN_ROOT: ${{ github.workspace }}/.auren-under-test
+          AUREN_REVISION: 2257e7a4a62715036e66c4d3477e26cd7548634e
         run: python -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_*_contract.py' -v
       - name: Run AUREN supervisor, crew, approval and recovery acceptance suites
         run: |
