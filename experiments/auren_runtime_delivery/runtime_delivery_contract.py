@@ -25,17 +25,17 @@ from portable.response_delivery import (
 )
 
 
-def checked_out_revision() -> str:
+def checked_out_revision(repository_root: Path) -> str:
     result = subprocess.run(
         ["git", "rev-parse", "HEAD"],
-        cwd=AUREN_ROOT,
+        cwd=repository_root,
         text=True,
         capture_output=True,
         check=False,
         timeout=30,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"could not resolve AUREN checkout revision: {result.stderr}")
+        raise RuntimeError(f"could not resolve checkout revision at {repository_root}: {result.stderr}")
     return result.stdout.strip()
 
 
@@ -84,12 +84,12 @@ class IdempotentResearchReceiver:
 class AurenRuntimeDeliveryTests(unittest.TestCase):
     def test_checkout_matches_immutable_revision_pin(self):
         self.assertRegex(AUREN_REVISION, r"^[0-9a-f]{40}$")
-        observed = checked_out_revision()
+        observed = checked_out_revision(AUREN_ROOT)
         self.assertEqual(AUREN_REVISION, observed)
         print(json.dumps({
             "contract": "auren-runtime-delivery-v1",
             "auren_revision": observed,
-            "testbed_revision": os.environ.get("GITHUB_SHA", ""),
+            "testbed_checkout_sha": checked_out_revision(ROOT.parent.parent),
             "network_access_required": False,
             "production_trading_code_changed": False,
         }, sort_keys=True))
