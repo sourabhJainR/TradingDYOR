@@ -16,7 +16,7 @@ The test workload represents a multi-ticker research batch with filings, news, e
 
 ## Pinned AUREN source
 
-The workflow checks out candidate AUREN commit `7838aa9c2aa3e2102fe52e69dec183b92c8316a3` from PR #1435 and verifies `git rev-parse HEAD` against this immutable pin. It runs the existing delivery and supervisor/crew suites plus the repository execution preflight contract tests from that same checkout. The preflight tests cover repository identity, path scopes, nested tool schemas, immutable acceptance evidence and exact-head CI gating. After PR #1435 merges, refresh this pin to the merge commit before merging the test-bed change. The tests import the actual `portable.dashboard_server`, `portable.response_delivery_artifacts`, `portable.response_delivery`, `portable.progress_journal`, and CLI delivery entry point directly from that checkout. The pin is immutable so a test run can be reproduced.
+The workflow checks out candidate AUREN commit `2257e7a4a62715036e66c4d3477e26cd7548634e` from PR #1435 and verifies `git rev-parse HEAD` against this immutable pin. It runs the existing delivery and supervisor/crew suites plus the repository execution preflight contract tests from that same checkout. The preflight tests cover repository identity, path scopes, nested tool schemas, immutable acceptance evidence and exact-head CI gating. After PR #1435 merges, refresh this pin to the merge commit before merging the test-bed change. The tests import the actual `portable.dashboard_server`, `portable.response_delivery_artifacts`, `portable.response_delivery`, `portable.progress_journal`, and CLI delivery entry point directly from that checkout. The pin is immutable so a test run can be reproduced.
 
 ## Run
 
