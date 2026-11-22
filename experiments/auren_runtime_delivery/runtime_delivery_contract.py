@@ -10,6 +10,7 @@ import tempfile
 import time
 import unittest
 
+ROOT = Path(__file__).resolve().parent
 AUREN_ROOT = Path(os.environ["AUREN_ROOT"]).resolve()
 AUREN_REVISION = os.environ["AUREN_REVISION"]
 if not (AUREN_ROOT / "portable" / "response_delivery.py").is_file():
