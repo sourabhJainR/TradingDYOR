@@ -1,14 +1,17 @@
 """Cross-repository integration tests against the pinned AUREN delivery modules."""
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import time
 import unittest
 
 AUREN_ROOT = Path(os.environ["AUREN_ROOT"]).resolve()
+AUREN_REVISION = os.environ["AUREN_REVISION"]
 if not (AUREN_ROOT / "portable" / "response_delivery.py").is_file():
     raise RuntimeError("AUREN_ROOT does not point to the pinned AUREN checkout")
 sys.path.insert(0, str(AUREN_ROOT))
@@ -20,6 +23,20 @@ from portable.response_delivery import (
     chunk_response,
     deliver_response,
 )
+
+
+def checked_out_revision() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=AUREN_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"could not resolve AUREN checkout revision: {result.stderr}")
+    return result.stdout.strip()
 
 
 def research_evidence_bundle() -> str:
@@ -65,6 +82,18 @@ class IdempotentResearchReceiver:
 
 
 class AurenRuntimeDeliveryTests(unittest.TestCase):
+    def test_checkout_matches_immutable_revision_pin(self):
+        self.assertRegex(AUREN_REVISION, r"^[0-9a-f]{40}$")
+        observed = checked_out_revision()
+        self.assertEqual(AUREN_REVISION, observed)
+        print(json.dumps({
+            "contract": "auren-runtime-delivery-v1",
+            "auren_revision": observed,
+            "testbed_revision": os.environ.get("GITHUB_SHA", ""),
+            "network_access_required": False,
+            "production_trading_code_changed": False,
+        }, sort_keys=True))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.journal_path = Path(self.temp.name) / "progress.jsonl"
