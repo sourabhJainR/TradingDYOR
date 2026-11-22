@@ -25,9 +25,12 @@ ARDISA_REVISION=<40-character-commit-sha> \
 python -m unittest discover -s experiments/ardisa_compiler -p 'test_*.py' -v
 ```
 
-The dedicated GitHub Actions workflow checks out Ardisa at exact main commit `61577c3469d8fbdec039e85ae119d417f1df2702`, verifies the checkout SHA,
-then runs this suite. The test invokes `cargo run -p ardisa` against that
-checkout; it does not reimplement or simulate the compiler.
+The dedicated GitHub Actions workflow checks out the candidate Ardisa commit `fcdd715807813ac7480cf4444c58fc81ab54af3a` from PR #399, verifies the checkout SHA,
+then runs the full Ardisa workspace tests and this suite. The pinned PR also
+includes the loopback-only native HTTP host; its negative bind test runs in the
+workspace suite. The test invokes `cargo run -p ardisa` against that checkout;
+it does not reimplement or simulate the compiler. After PR #399 merges, refresh
+this pin to the merge commit before merging the test-bed change.
 
 ## Boundaries
 
