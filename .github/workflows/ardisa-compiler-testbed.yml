@@ -29,7 +29,7 @@ jobs:
           ref: d1d80797015d47328504f4d0a29b50d34b397ae8
           path: .ardisa-under-test
       - name: Verify exact Ardisa revision
-        run: test "$(git -C .ardisa-under-test rev-parse HEAD)" = "4c5abac3a50425730c3770bd85358da077694c90"
+        run: test "$(git -C .ardisa-under-test rev-parse HEAD)" = "d1d80797015d47328504f4d0a29b50d34b397ae8"
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Set up Python
@@ -45,5 +45,5 @@ jobs:
       - name: Run cross-repository compiler/runtime contracts
         env:
           ARDISA_ROOT: ${{ github.workspace }}/.ardisa-under-test
-          ARDISA_REVISION: 4c5abac3a50425730c3770bd85358da077694c90
+          ARDISA_REVISION: d1d80797015d47328504f4d0a29b50d34b397ae8
         run: python -m unittest discover -s experiments/ardisa_compiler -p 'runtime_*_contract.py' -v
