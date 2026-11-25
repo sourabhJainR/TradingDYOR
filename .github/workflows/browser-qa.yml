@@ -21,7 +21,7 @@ jobs:
           node-version: '20'
       - run: python -m pip install -e .
       - run: npm install
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install chromium
       - name: Run browser tests
         env:
           CI: 'true'
