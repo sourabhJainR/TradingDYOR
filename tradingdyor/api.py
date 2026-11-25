@@ -52,6 +52,9 @@ def sources(): return [s.__dict__ for s in SOURCES]
 @app.get("/")
 def spa(): return FileResponse(WEB_ROOT / "index.html")
 
+@app.get("/sources.html")
+def sources_library(): return FileResponse(WEB_ROOT / "sources.html")
+
 @app.get("/brief/{ticker}")
 def one_page_brief_app(ticker: str): return FileResponse(WEB_ROOT / "brief.html")
 
