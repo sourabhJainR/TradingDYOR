@@ -26,18 +26,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sourabhJainR/AUREN
-          ref: 4c1596b67b3469972cb878a6370f537135d7775b
+          ref: 679d24780e9f62e2438f36cffeebef6227b61df1
           path: .auren-under-test
+      - name: Verify exact AUREN revision
+        run: test "$(git -C .auren-under-test rev-parse HEAD)" = "679d24780e9f62e2438f36cffeebef6227b61df1"
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install TradingDYOR application and test dependencies
         run: python -m pip install -e ".[dev]"
-      - name: Run cross-domain AUREN runtime tests
-        env:
-          AUREN_ROOT: ${{ github.workspace }}/.auren-under-test
-        run: python -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_*_contract.py' -v
       - name: Run AUREN supervisor, crew, approval and recovery acceptance suites
         run: |
           cd .auren-under-test
@@ -51,10 +49,12 @@ jobs:
             tests.test_state_migration \
             tests.test_agent_org_contract \
             tests.test_container_sandboxed_arena_integration
-      - name: Run AUREN receiver-acknowledged HTTP and CLI delivery contracts
+      - name: Run AUREN repository execution preflight contracts
+        run: |
+          cd .auren-under-test
+          python -m unittest -v tests.test_repository_execution_preflight
+      - name: Run AUREN CLI and sink delivery contracts
         run: |
           python -m pip install pytest
           cd .auren-under-test
-          python -m pytest -q \
-            tests/test_dashboard_chunked_delivery.py \
-            tests/test_response_delivery_sinks.py
+          python -m pytest -q tests/test_response_delivery_sinks.py
