@@ -26,10 +26,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sourabhJainR/AUREN
-          ref: 7645a54291a6cbe20d1cc4ace4d409103c76885b
+          ref: 679d24780e9f62e2438f36cffeebef6227b61df1
           path: .auren-under-test
       - name: Verify exact AUREN revision
-        run: test "$(git -C .auren-under-test rev-parse HEAD)" = "7645a54291a6cbe20d1cc4ace4d409103c76885b"
+        run: test "$(git -C .auren-under-test rev-parse HEAD)" = "679d24780e9f62e2438f36cffeebef6227b61df1"
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

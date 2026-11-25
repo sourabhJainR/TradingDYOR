@@ -25,7 +25,7 @@ ARDISA_REVISION=<40-character-commit-sha> \
 python -m unittest discover -s experiments/ardisa_compiler -p 'test_*.py' -v
 ```
 
-The dedicated GitHub Actions workflow checks out Ardisa at the immutable main revision `d1d80797015d47328504f4d0a29b50d34b397ae8`, verifies the checkout SHA, then runs the full Ardisa workspace tests and this suite. That revision includes the merged native HTTP host and the main-branch security fixes. The test invokes `cargo run -p ardisa` against that checkout; it does not reimplement or simulate the compiler. Refresh this pin after later Ardisa merges before accepting the test-bed change.
+The dedicated GitHub Actions workflow checks out Ardisa at the immutable main revision `b138ebbac3c0c709b23ed69ae305d2475a68dd46`, verifies the checkout SHA, then runs the full Ardisa workspace tests and this suite. That revision includes the merged native HTTP host and the main-branch security fixes. The test invokes `cargo run -p ardisa` against that checkout; it does not reimplement or simulate the compiler. Refresh this pin after later Ardisa merges before accepting the test-bed change.
 
 ## Boundaries
 
