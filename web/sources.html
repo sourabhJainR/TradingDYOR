@@ -5,7 +5,7 @@
 </style></head><body><main>
 <div class="top"><div><div class="brand">Research Source Library</div><div class="muted">Browse public information sources registered in TradingDYOR</div></div><a href="/">← Return to cockpit</a></div>
 <div class="stats"><div class="card"><div class="muted">Registered sources</div><div id="count" class="metric">—</div></div><div class="card"><div class="muted">Categories</div><div id="cats" class="metric">—</div></div><div class="card"><div class="muted">Access</div><div class="metric">Public web</div></div></div>
-<div class="card"><div class="controls"><input id="query" placeholder="Search source name, category or URL" aria-label="Search sources"><select id="category"><option value="">All categories</option></select></div><div id="status" class="muted">Loading sources...</div><div id="list" class="grid"></div></div>
+<div class="card"><div class="controls"><input id="query" placeholder="Search source name, category or URL" aria-label="Search source name, category or URL"><select id="category" aria-label="Filter by category"><option value="">All categories</option></select></div><div id="status" class="muted">Loading sources...</div><div id="list" class="grid"></div></div>
 <p class="muted" style="font-size:12px;margin-top:14px">These are registered research destinations, not verified endorsements. Open-source content may be incomplete, biased, stale, or misleading. Review each source independently. TradingDYOR does not bypass robots.txt, authentication, paywalls, or site access controls.</p>
 </main><script>
 const $=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));let sources=[];

@@ -1,0 +1,6 @@
+{
+  "name": "tradingdyor-browser-qa",
+  "private": true,
+  "scripts": {"test:browser": "playwright test"},
+  "devDependencies": {"@playwright/test": "1.56.1", "@axe-core/playwright": "4.10.2"}
+}

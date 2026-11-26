@@ -1,0 +1,59 @@
+name: TradingDYOR Browser QA
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  browser-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: python -m pip install -e .
+      - run: npm install
+      - run: npx playwright install chromium
+      - name: Run browser tests
+        env:
+          CI: 'true'
+          TESTED_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: npm run test:browser
+      - name: Produce commit-bound evidence manifest
+        if: always()
+        env:
+          TESTED_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess, pathlib
+          checkout_sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          sha=os.environ.get('PR_HEAD_SHA') or os.environ.get('TESTED_SHA') or checkout_sha
+          report=pathlib.Path('browser-qa-report.json')
+          data=json.loads(report.read_text()) if report.exists() else {}
+          manifest={'commit_sha':sha,'pr_head_sha':os.environ.get('PR_HEAD_SHA'),
+                    'checkout_sha':checkout_sha,'workflow_run_id':os.environ.get('GITHUB_RUN_ID'),
+                    'workflow_attempt':os.environ.get('GITHUB_RUN_ATTEMPT'),
+                    'report_present':report.exists(),'report':data,
+                    'status':'completed-report' if report.exists() else 'report-missing'}
+          pathlib.Path('browser-qa-evidence.json').write_text(json.dumps(manifest,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-qa-evidence-${{ github.sha }}
+          path: |
+            browser-qa-report.json
+            browser-qa-evidence.json
+            browser-qa-artifacts/
+          if-no-files-found: warn
+          retention-days: 7
