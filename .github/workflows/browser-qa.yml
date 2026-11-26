@@ -30,6 +30,9 @@ jobs:
         run: npm run test:browser
       - name: Produce commit-bound evidence manifest
         if: always()
+        env:
+          TESTED_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           python - <<'PY'
           import json, os, subprocess, pathlib
