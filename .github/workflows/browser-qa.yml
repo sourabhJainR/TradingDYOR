@@ -26,16 +26,19 @@ jobs:
         env:
           CI: 'true'
           TESTED_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm run test:browser
       - name: Produce commit-bound evidence manifest
         if: always()
         run: |
           python - <<'PY'
           import json, os, subprocess, pathlib
-          sha=os.environ.get('TESTED_SHA') or subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          checkout_sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          sha=os.environ.get('PR_HEAD_SHA') or os.environ.get('TESTED_SHA') or checkout_sha
           report=pathlib.Path('browser-qa-report.json')
           data=json.loads(report.read_text()) if report.exists() else {}
-          manifest={'commit_sha':sha,'workflow_run_id':os.environ.get('GITHUB_RUN_ID'),
+          manifest={'commit_sha':sha,'pr_head_sha':os.environ.get('PR_HEAD_SHA'),
+                    'checkout_sha':checkout_sha,'workflow_run_id':os.environ.get('GITHUB_RUN_ID'),
                     'workflow_attempt':os.environ.get('GITHUB_RUN_ATTEMPT'),
                     'report_present':report.exists(),'report':data,
                     'status':'completed-report' if report.exists() else 'report-missing'}
