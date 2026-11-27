@@ -1,0 +1,13 @@
+module shared_host_parity
+
+fn main() -> String
+  "shared-result"
+
+fn home(method: String, path: String, query: String, body: String) -> String
+  "shared-result"
+
+fn echo_query(method: String, path: String, query: String, body: String) -> String
+  query
+
+fn echo_body(method: String, path: String, query: String, body: String) -> String
+  body
