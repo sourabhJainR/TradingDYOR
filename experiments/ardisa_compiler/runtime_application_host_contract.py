@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import queue
 import re
+import signal
 import subprocess
 import threading
 import time
@@ -68,7 +69,7 @@ class ArdisaApplicationHostAcceptance(unittest.TestCase):
         ]
         process = subprocess.Popen(
             command, cwd=ARDISA_ROOT, text=True, bufsize=1,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
         )
         output: queue.Queue[str | None] = queue.Queue()
 
@@ -150,11 +151,18 @@ class ArdisaApplicationHostAcceptance(unittest.TestCase):
                 "self_hosting_claim": "not_asserted",
             }, sort_keys=True))
         finally:
-            process.terminate()
+            if process.poll() is None:
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
             try:
                 process.wait(timeout=15)
             except subprocess.TimeoutExpired:
-                process.kill()
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
                 process.wait(timeout=15)
 
 
