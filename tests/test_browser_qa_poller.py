@@ -1,4 +1,13 @@
-from scripts.poll_browser_qa import poll_run
+import importlib.util
+from pathlib import Path
+
+module_path = Path(__file__).resolve().parents[1] / "scripts" / "poll_browser_qa.py"
+spec = importlib.util.spec_from_file_location("poll_browser_qa", module_path)
+if spec is None or spec.loader is None:
+    raise ImportError("unable to load browser QA poller")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+poll_run = module.poll_run
 
 SHA = "a" * 40
 PATH = ".github/workflows/browser-qa.yml"
@@ -48,16 +57,21 @@ def test_request_timeout_is_capped_by_remaining_budget():
 
 def test_running_run_times_out_without_unbounded_sleep():
     calls = [0]
+    request_calls = [0]
 
     def clock():
         calls[0] += 1
         return 0 if calls[0] <= 2 else 2
 
+    def request(url, token, timeout):
+        request_calls[0] += 1
+        return run_data(status="in_progress", conclusion=None)
+
     result = poll_run(
         "owner/repo", 1, SHA, token="fake", timeout_seconds=1,
-        request=lambda u, t, timeout: run_data(status="in_progress", conclusion=None),
-        clock=clock, sleep=lambda _: None,
+        request=request, clock=clock, sleep=lambda _: None,
     )
+    assert request_calls[0] == 1
     assert result["state"] == "timeout"
 
 
