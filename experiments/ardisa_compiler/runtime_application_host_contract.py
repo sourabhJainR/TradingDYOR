@@ -19,7 +19,7 @@ ARDISA_ROOT = Path(os.environ["ARDISA_ROOT"]).resolve()
 REVISION = os.environ["ARDISA_REVISION"]
 SOURCE = ROOT / "fixtures" / "shared_host_parity.ardisa"
 SHA = re.compile(r"^[0-9a-f]{40}$")
-LISTENING = re.compile(r"listening on http://127\\.0\\.0\\.1:(\\d+)")
+LISTENING = re.compile(r"listening on http://127\.0\.0\.1:(\d+)")
 
 
 def checked_out_revision() -> str:
