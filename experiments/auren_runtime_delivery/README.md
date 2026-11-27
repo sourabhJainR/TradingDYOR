@@ -17,7 +17,7 @@ The test workload represents a multi-ticker research batch with filings, news, e
 ## Pinned AUREN source
 
 Regular TradingDYOR CI and the dedicated test-bed check out AUREN at the
-immutable merged-main revision `09955776eefd361cde29a8bf4dc6ab969f690075`. Each checkout verifies the observed
+immutable merged-main revision `f021e794ae700a4b8294f257eeed97e3bb50887c`. Each checkout verifies the observed
 SHA with `git rev-parse HEAD`. The optimizer/rubric and runtime-delivery
 contracts use separate checkout directories at the same pin.
 
