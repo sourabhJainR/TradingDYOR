@@ -16,8 +16,28 @@ The test workload represents a multi-ticker research batch with filings, news, e
 
 ## Pinned AUREN source
 
-Regular TradingDYOR CI keeps the optimizer/rubric experiment on its own immutable AUREN revision `4fb48592af83ccbe7034cda9b154f94fa022d15b` (PR #37) and checks out the runtime-delivery candidate `2257e7a4a62715036e66c4d3477e26cd7548634e` (PR #1435) separately. Both checkouts are verified with `git rev-parse HEAD`. The dedicated AUREN delivery test-bed workflow now pins and verifies current main `679d24780e9f62e2438f36cffeebef6227b61df1`. Regular CI runs the core cross-domain delivery contract and dashboard chunked-delivery test on every TradingDYOR change. The dedicated test-bed workflow adds supervisor/crew, approval, recovery, repository preflight and CLI sink suites; it does not repeat the core delivery or dashboard chunk tests. The preflight tests cover repository identity, path scopes, nested tool schemas, immutable acceptance evidence and exact-head CI gating. The dedicated test-bed is refreshed to the current main SHA. Regular CI pins remain separately scoped in the overlapping open PR #37; refresh those after the integration order is resolved. The tests import the actual `portable.dashboard_server`, `portable.response_delivery_artifacts`, `portable.response_delivery`, `portable.progress_journal`, and CLI delivery entry point directly from that checkout. The pin is immutable so a test run can be reproduced. The acceptance suite emits JSON evidence containing both the observed AUREN checkout SHA and the TradingDYOR test-bed checkout SHA.
+Regular TradingDYOR CI and the dedicated test-bed check out AUREN at the
+immutable merged-main revision `f021e794ae700a4b8294f257eeed97e3bb50887c`. Each checkout verifies the observed
+SHA with `git rev-parse HEAD`. The optimizer/rubric and runtime-delivery
+contracts use separate checkout directories at the same pin.
 
+The regular CI job runs the optimizer/rubric trust-boundary tests, the core
+cross-domain delivery contract, and the dashboard chunked-delivery regression.
+The dedicated AUREN test-bed runs supervisor/crew, approval, recovery,
+repository execution preflight, live MCP schema preflight, and CLI/sink
+acceptance. This adds coverage for the merged plan-bound MCP schema contract
+without repeating the core delivery and dashboard chunk tests.
+
+PR #37 was closed without merging; its obsolete overlapping pin is no longer
+part of the acceptance plan. The AUREN validation-gate experiment remains
+isolated and unchanged.
+
+The tested AUREN pin is immutable and recorded in the workflows. The tests
+import the actual `portable.dashboard_server`,
+`portable.response_delivery_artifacts`, `portable.response_delivery`,
+`portable.progress_journal`, and CLI delivery entry point from that checkout.
+The acceptance suite emits JSON evidence containing the observed AUREN SHA and
+TradingDYOR test-bed SHA.
 ## Run
 
 ```bash

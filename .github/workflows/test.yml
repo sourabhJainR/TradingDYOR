@@ -40,18 +40,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sourabhJainR/AUREN
-          ref: 679d24780e9f62e2438f36cffeebef6227b61df1
+          ref: f021e794ae700a4b8294f257eeed97e3bb50887c
           path: .auren-optimizer-under-test
       - name: Verify exact AUREN optimizer revision
-        run: test "$(git -C .auren-optimizer-under-test rev-parse HEAD)" = "679d24780e9f62e2438f36cffeebef6227b61df1"
+        run: test "$(git -C .auren-optimizer-under-test rev-parse HEAD)" = "f021e794ae700a4b8294f257eeed97e3bb50887c"
       - name: Check out pinned AUREN runtime implementation
         uses: actions/checkout@v4
         with:
           repository: sourabhJainR/AUREN
-          ref: 679d24780e9f62e2438f36cffeebef6227b61df1
+          ref: f021e794ae700a4b8294f257eeed97e3bb50887c
           path: .auren-under-test
       - name: Verify exact AUREN runtime revision
-        run: test "$(git -C .auren-under-test rev-parse HEAD)" = "679d24780e9f62e2438f36cffeebef6227b61df1"
+        run: test "$(git -C .auren-under-test rev-parse HEAD)" = "f021e794ae700a4b8294f257eeed97e3bb50887c"
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -68,7 +68,7 @@ jobs:
       - name: Run cross-domain AUREN runtime tests
         env:
           AUREN_ROOT: ${{ github.workspace }}/.auren-under-test
-          AUREN_REVISION: 679d24780e9f62e2438f36cffeebef6227b61df1
+          AUREN_REVISION: f021e794ae700a4b8294f257eeed97e3bb50887c
         run: |
           python -m unittest discover -s experiments/auren_runtime_delivery -p 'runtime_*_contract.py' -v
           pip install pytest

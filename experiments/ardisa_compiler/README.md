@@ -21,7 +21,7 @@ From the TradingDYOR repository root, with a separate Ardisa checkout:
 
 ```bash
 ARDISA_ROOT=/path/to/Ardisa \
-ARDISA_REVISION=<40-character-commit-sha> \
+ARDISA_REVISION=b138ebbac3c0c709b23ed69ae305d2475a68dd46 \
 python -m unittest discover -s experiments/ardisa_compiler -p 'test_*.py' -v
 ```
 
