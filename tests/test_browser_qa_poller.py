@@ -27,10 +27,22 @@ def test_pass_requires_exact_sha_and_workflow_path():
     assert result["state"] == "passed"
 
 
+def test_workflow_path_with_ref_suffix_is_accepted():
+    raw_path = PATH + "@refs/pull/42/merge"
+    result = poll_run(
+        "owner/repo", 1, SHA, token="fake",
+        request=lambda u, token, timeout: run_data(path=raw_path),
+    )
+    assert result["state"] == "passed"
+    assert result["observed_workflow_path"] == PATH
+    assert result["raw_observed_workflow_path"] == raw_path
+    assert result["observed_workflow_ref"] == "refs/pull/42/merge"
+
+
 def test_workflow_path_mismatch_not_pass():
     result = poll_run(
         "owner/repo", 1, SHA, token="fake",
-        request=lambda u, t, timeout: run_data(path=".github/workflows/test.yml"),
+        request=lambda u, t, timeout: run_data(path=".github/workflows/test.yml@main"),
     )
     assert result["state"] == "workflow_mismatch"
 
