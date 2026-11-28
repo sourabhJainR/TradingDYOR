@@ -46,6 +46,17 @@ def default_request(url: str, token: str, timeout: float) -> dict:
         return json.loads(response.read(65536))
 
 
+def match_workflow_path(observed: object, expected: str) -> tuple[str | None, str | None, bool]:
+    if observed == expected:
+        return expected, None, True
+    prefix = expected + "@"
+    if isinstance(observed, str) and observed.startswith(prefix):
+        ref = observed[len(prefix):]
+        if ref and len(ref) <= 256 and not any(ord(char) < 32 for char in ref):
+            return expected, ref, True
+    return observed if isinstance(observed, str) else None, None, False
+
+
 def poll_run(
     repo: str,
     run_id: int,
@@ -97,16 +108,22 @@ def poll_run(
                 "url": None, "transport_error": type(exc).__name__, "state": state,
             }
 
+        raw_workflow_path = run.get("path")
+        normalized_path, workflow_ref, workflow_matches = match_workflow_path(
+            raw_workflow_path, expected_workflow_path
+        )
         result = {
             "run_id": run_id, "repo": repo, "expected_sha": expected_sha,
             "observed_sha": run.get("head_sha"),
             "expected_workflow_path": expected_workflow_path,
-            "observed_workflow_path": run.get("path"),
+            "observed_workflow_path": normalized_path,
+            "raw_observed_workflow_path": raw_workflow_path,
+            "observed_workflow_ref": workflow_ref,
             "workflow_id": run.get("workflow_id"), "workflow_name": run.get("name"),
             "status": run.get("status"), "conclusion": run.get("conclusion"),
             "url": run.get("html_url"),
         }
-        if result["observed_workflow_path"] != expected_workflow_path:
+        if not workflow_matches:
             result["state"] = "workflow_mismatch"
             return result
         if result["observed_sha"] != expected_sha:
