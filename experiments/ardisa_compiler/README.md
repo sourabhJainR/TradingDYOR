@@ -19,11 +19,11 @@ From the TradingDYOR repository root, with a separate Ardisa checkout:
 
 ```bash
 ARDISA_ROOT=/path/to/Ardisa \
-ARDISA_REVISION=e9e1ac42133bf02625999e6107025f819d36e142 \
+ARDISA_REVISION=310a7dcb3d0968b4b7a5cb5764b038e075bfbf73 \
 python -m unittest discover -s experiments/ardisa_compiler -p 'runtime_*_contract.py' -v
 ```
 
-The dedicated GitHub Actions workflow checks out Ardisa at the immutable candidate revision `e9e1ac42133bf02625999e6107025f819d36e142` from Ardisa PR #416, verifies the checkout SHA, then runs the full Ardisa workspace tests and this suite. The acceptance run starts a loopback-only native HTTP server, calls the real CLI, and shuts it down. The candidate revision is a test target, not a runtime dependency. Refresh this pin after later Ardisa merges before accepting another test-bed change.
+The dedicated GitHub Actions workflow checks out Ardisa at the immutable candidate revision `310a7dcb3d0968b4b7a5cb5764b038e075bfbf73` from Ardisa PR #417, verifies the checkout SHA, then runs the full Ardisa workspace tests and this suite. The acceptance run starts a loopback-only native HTTP server, calls the real CLI, and shuts it down. The candidate revision is a test target, not a runtime dependency. This pin tests the exact PR #417 candidate and is intentionally not a floating branch reference. Refresh it after the candidate changes or merges before accepting a subsequent test-bed change.
 
 ## Boundaries
 
